@@ -1,0 +1,27 @@
+{% extends "gpt-3.5-turbo/new/common.j2" %}
+{% block prompt %}
+Your task is to use the information provided below to fill the arguments of the selected action that you will execute to accomplish your goal.
+
+===== TASK =====
+This is your current task:
+{{ task }}
+
+===== GOAL =====
+This is the goal that you are trying to accomplish:
+{{ goal }}
+
+===== PREVIOUS THOUGHT =====
+This is your previous thought, keep in mind that it can contain future actions that you have not yet executed:
+{{ previous_thought }}
+
+===== ACTION DESCRIPTION =====
+Review the detailed description of the action to fill the arguments in their proper format:
+{{ ability }}
+
+{%- if summary %}
+===== HISTORY =====
+This is the history of your previous actions:
+{{ summary }}
+{%- endif %}
+
+{% endblock %}

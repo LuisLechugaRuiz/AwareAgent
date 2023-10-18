@@ -1,0 +1,17 @@
+{%- set example_output_schema -%}
+{"Example": {"properties": {"foo": {"title": "Foo", "description": "a list of strings", "type": "array", "items": {"type": "string"}}}, "required": ["foo"]}}
+{%- endset -%}
+{%- set well_formatted_instance -%}
+{"Example": {"foo": ["bar", "baz"]}}
+{%- endset -%}
+{%- set not_well_formatted_instance -%}
+{"Example": {"properties": {"foo": ["bar", "baz"]}}}
+{%- endset -%}
+
+Please provide a JSON object that conforms to the JSON schema provided below:
+{{ schema }}
+
+---
+Example of output schema: {{ example_output_schema }}
+Well-formatted instance of the schema: {{ well_formatted_instance }}
+Not well-formatted instance: {{ not_well_formatted_instance }}
