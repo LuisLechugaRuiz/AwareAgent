@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-COMMAND_CATEGORY = "web_browse"
-COMMAND_CATEGORY_TITLE = "Web Browsing"
-
 import logging
 import re
 from pathlib import Path
 from sys import platform
-from typing import TYPE_CHECKING, Optional, Type, List, Tuple
+from typing import Optional, Type, List, Tuple
 
 from bs4 import BeautifulSoup
 from selenium.common.exceptions import WebDriverException
@@ -35,20 +32,24 @@ from webdriver_manager.microsoft import EdgeChromiumDriverManager as EdgeDriverM
 
 
 from ..registry import ability
-from forge.sdk.errors import *
 import functools
 import re
 from typing import Any, Callable
 from urllib.parse import urljoin, urlparse
 
-from requests.compat import urljoin
-
-
 from bs4 import BeautifulSoup
 from requests.compat import urljoin
 
+from forge.helpers.parser import ChatParser
+from forge.utils.proccess_tokens import count_string_tokens, preprocess_text
+from forge.sdk import PromptEngine, ForgeLogger
+from forge.sdk.errors import *
 
-def extract_hyperlinks(soup: BeautifulSoup, base_url: str) -> list[tuple[str, str]]:
+
+LOG = ForgeLogger(__name__)
+
+
+def extract_hyperlinks(soup: BeautifulSoup, base_url: str) -> list[Tuple[str, str]]:
     """Extract hyperlinks from a BeautifulSoup object
 
     Args:
@@ -64,7 +65,7 @@ def extract_hyperlinks(soup: BeautifulSoup, base_url: str) -> list[tuple[str, st
     ]
 
 
-def format_hyperlinks(hyperlinks: list[tuple[str, str]]) -> list[str]:
+def format_hyperlinks(hyperlinks: list[Tuple[str, str]]) -> list[str]:
     """Format hyperlinks to be displayed to the user
 
     Args:
@@ -74,7 +75,6 @@ def format_hyperlinks(hyperlinks: list[tuple[str, str]]) -> list[str]:
         List[str]: The formatted hyperlinks
     """
     return [f"{link_text} ({link_url})" for link_text, link_url in hyperlinks]
-
 
 
 def validate_url(func: Callable[..., Any]) -> Any:
@@ -178,22 +178,15 @@ def check_local_file_access(url: str) -> bool:
     return any(url.startswith(prefix) for prefix in local_prefixes)
 
 
-
-
 logger = logging.getLogger(__name__)
 
-FILE_DIR = Path(__file__).parent.parent
-TOKENS_TO_TRIGGER_SUMMARY = 50
+MAX_TOKENS = 3000
 LINKS_TO_RETURN = 20
-
-
-class BrowsingError(CommandExecutionError):
-    """An error occurred while trying to browse the page"""
 
 
 @ability(
     name="read_webpage",
-    description="Read a webpage, and extract specific information from it if a question is specified. If you are looking to extract specific information from the webpage, you should specify a question.",
+    description="Read a webpage, and extract specific information from it if a question is specified.",
     parameters=[
         {
             "name": "url",
@@ -201,17 +194,19 @@ class BrowsingError(CommandExecutionError):
             "type": "string",
             "required": True,
         },
-                {
+        {
             "name": "question",
             "description": "A question that you want to answer using the content of the webpage.",
             "type": "string",
             "required": False,
-        }
+        },
     ],
-    output_type="string",
+    output_type="str",
 )
-@validate_url
-async def read_webpage(agent, task_id: str, url: str, question: str = "") -> Tuple(str, List[str]):
+# @validate_url
+async def read_webpage(
+    agent, task_id: str, url: str, question: str = ""
+) -> str:
     """Browse a website and return the answer and links to the user
 
     Args:
@@ -231,21 +226,24 @@ async def read_webpage(agent, task_id: str, url: str, question: str = "") -> Tup
         if not text:
             return f"Website did not contain any text.\n\nLinks: {links}"
 
+        if count_string_tokens(text, agent.model) > MAX_TOKENS:
+            LOG.info("Summarizing text...")
+            text = await summarize_text(agent, text, question)
+
         # Limit links to LINKS_TO_RETURN
         if len(links) > LINKS_TO_RETURN:
             links = links[:LINKS_TO_RETURN]
-        return (text, links)
+        if links:
+            text += f"\n\nThese are links extracted from the web:\n{links}"
+        return text
 
     except WebDriverException as e:
         # These errors are often quite long and include lots of context.
         # Just grab the first line.
         msg = e.msg.split("\n")[0]
         if "net::" in msg:
-            raise BrowsingError(
-                f"A networking error occurred while trying to load the page: "
-                + re.sub(r"^unknown error: ", "", msg)
-            )
-        raise CommandExecutionError(msg)
+            return "A networking error occurred while trying to load the page: " + re.sub(r"^unknown error: ", "", msg)
+        return f"Command execution error: {msg}"
     finally:
         if driver:
             close_browser(driver)
@@ -373,3 +371,65 @@ def close_browser(driver: WebDriver) -> None:
     """
     driver.quit()
 
+
+async def summarize_text(
+    agent,
+    text: str,
+    question: Optional[str],
+) -> str:
+    """Summarize text using the OpenAI API
+
+    Args:
+        text (str): The text to summarize
+        question (Optional[str]): The question to ask the model
+
+    Returns:
+        str: The summary of the text
+    """
+    if not text:
+        return "No text to summarize"
+
+    text_length = len(text)
+    LOG.info(f"Text length: {text_length} characters")
+
+    # Get chunks
+    raw_prompt = await get_prompt(agent, text="", question=question, is_meta=False)
+
+    chunks = preprocess_text(raw_prompt, text, chunk_max_tokens=MAX_TOKENS, model=agent.model)
+    summaries = []
+    for chunk in chunks:
+        summaries.append(await get_summary(agent, chunk, question, is_meta=False))
+
+    if len(summaries) > 1:
+        text = "\n\n".join(summaries)
+        summary = await get_summary(agent, text, question, is_meta=True)
+    else:
+        summary = summaries[0]
+
+    LOG.info(f"Summary: {summary}")
+
+    return summary
+
+
+async def get_summary(
+    agent, text: str, question: Optional[str], is_meta: bool = False
+) -> str:
+    system = await get_prompt(agent, text, question, is_meta)
+
+    chat_parser = ChatParser(agent.model)
+    summary = await chat_parser.get_response(
+        system=system,
+        user="Remember to only return the summary.",
+    )
+    return summary
+
+
+async def get_prompt(agent, text: str, question: Optional[str], is_meta: bool = False) -> str:
+    prompt_engine = PromptEngine(agent.model)
+    system_kwargs = {
+        "meta": is_meta,
+        "text": text,
+        "question": question,
+    }
+    system = prompt_engine.load_prompt("abilities/summarize", **system_kwargs)
+    return system

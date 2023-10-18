@@ -6,38 +6,37 @@ from ..registry import ability
     description="Create a file (if it doesn't exist) and write data to it.",
     parameters=[
         {
-            "name": "file_path",
-            "description": "Path to the file",
+            "name": "filename",
+            "description": "Name of the file to create. Don't forget to include the extension.",
             "type": "string",
             "required": True,
         },
         {
-            "name": "data",
-            "description": "Data to write to the file",
-            "type": "bytes",
+            "name": "text",
+            "description": "Text to write to the file",
+            "type": "string",
             "required": True,
         },
     ],
     output_type="None",
 )
-async def write_file(agent, task_id: str, file_path: str, data: bytes):
+async def write_file(agent, task_id: str, filename: str, text: str):
     """
     Write data to a file
     """
-    if isinstance(data, str):
-        data = data.encode()
+    data = text.encode("utf-8")
 
-    agent.workspace.write(task_id=task_id, path=file_path, data=data)
+    agent.workspace.write(task_id=task_id, path=filename, data=data)
     try:
         await agent.db.create_artifact(
             task_id=task_id,
-            file_name=file_path.split("/")[-1],
-            relative_path=file_path,
+            file_name=filename,
+            relative_path="",
             agent_created=True,
         )
-        return f"Successfully created file: {file_path} and added the following text: {str(data)}"
+        return f"Successfully created file: {filename} and added the following text: {data.decode('utf-8')}"
     except Exception as e:
-        return f"Failing to create file: {file_path} in the database. Error: {e}"
+        return f"Failing to create file: {filename} in the database. Error: {e}"
 
 
 @ability(

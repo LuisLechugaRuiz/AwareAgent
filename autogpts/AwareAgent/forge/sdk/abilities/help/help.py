@@ -3,7 +3,7 @@ from forge.sdk.abilities.registry import ability
 
 
 @ability(
-    name="think",
+    name="get_GPT4_help",
     description="Prompt GPT-4 to help you accomplish your goals. Useful when you need to perform intermediate steps. Keep in mind that the only info available to GPT-4 will be the one added on this prompt, so please provide a very detailed description of the problem.",
     parameters=[
         {
@@ -15,7 +15,7 @@ from forge.sdk.abilities.registry import ability
     ],
     output_type="str",
 )
-async def think(
+async def get_GPT4_help(
     agent,
     task_id: str,
     prompt: str,

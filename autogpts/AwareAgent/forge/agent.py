@@ -17,7 +17,7 @@ from forge.memory_tmp.goal import Goal, GoalStatus
 from forge.sdk.schema import Status as StepStatus
 from forge.utils.directories import list_directories
 
-from typing import List
+from typing import List, Optional
 import os
 
 LOG = ForgeLogger(__name__)
@@ -37,6 +37,7 @@ class ForgeAgent(Agent):
         self.last_thought = ""  # TODO: Move to memory
         self.goals: List["Goal"] = []  # TODO: Move to memory
         self.iterations = 0  # TODO: REMOVE - JUST A SAFE GUARD TO AVOID LOOPING
+        self.max_iterations = 10
 
     async def create_task(self, task_request: TaskRequestBody) -> Task:
         """
@@ -67,7 +68,7 @@ class ForgeAgent(Agent):
             LOG.info("No goals found. Exiting.")
             steps[-1].is_last = True
             return steps[-1]
-        if self.iterations > 5:
+        if self.iterations > self.max_iterations:
             LOG.info("Exiting due to too many iterations.")
             steps[-1].is_last = True
             return steps[-1]
@@ -79,7 +80,6 @@ class ForgeAgent(Agent):
         return step
 
     async def plan_stage(self, task, steps, summary=None):
-        # STOP!
         LOG.debug("Steps: " + str(steps))
         goals_str = None
         if len(self.goals) > 0:
@@ -98,43 +98,32 @@ class ForgeAgent(Agent):
         )
         self.goals = plan.goals
         self.last_thought = thought
-        # LOG.debug("Plan: " + str(plan))
-        # self.stage = Stage.EXECUTION  # TODO: Move to attention.
         if self.get_goal() is None:
             LOG.info("No goals found. Exiting.")
             return False
         return True
 
-    async def execute_stage(self, task: Task, goal: Goal, step_request: StepRequestBody, summary: str = None):
+    async def execute_stage(
+        self, task: Task, goal: Goal, step_request: StepRequestBody, summary: str = None
+    ):
         task_id = task.task_id
+        step = await self.db.create_step(
+            task_id=task_id, input=step_request, is_last=False
+        )
+
+        ability = self.verify_ability(goal.ability)
+        if ability is None:
+            return await self.update_step(
+                task_id, step.step_id, goal.ability, goal.description
+            )
 
         if goal.get_status() == GoalStatus.NOT_STARTED:
             goal.update_status(status=GoalStatus.IN_PROGRESS)
 
-        step = await self.db.create_step(
-            task_id=task_id, input=step_request, is_last=False
-        )
-        try:
-            ability = self.abilities.abilities[goal.ability]
-        except Exception as e:
-            additional_input = {
-                "goal": goal.description,
-                "ability": goal.ability,
-                "arguments": "",
-            }
-            step = await self.db.update_step(
-                task_id,
-                step.step_id,
-                status=StepStatus.completed.value,
-                additional_input=additional_input,
-                output=f"Ability {goal.ability} not found, verify that it contains only the name of the ability. Error: {e}",
-            )
-            return step
-
         # TODO:
         # - Add relevant information from the long term memory.
         thought, execution = await Execution.get_execution(
-            task=task.input,  # TODO: Do we need to convert it?
+            task=task.input,
             goal=goal,
             previous_thought=self.last_thought,
             ability=ability,
@@ -144,25 +133,26 @@ class ForgeAgent(Agent):
         )
         self.last_thought = thought
 
-        # Create a new step in the database
+        new_ability = self.verify_ability(execution.action)
+        if new_ability is None:
+            return await self.update_step(
+                task_id, step.step_id, execution.action, goal.description
+            )
+
+        # Execute the ability
         output = await self.abilities.run_ability(
-            task_id, ability.name, **execution.arguments
+            task_id, execution.action, **execution.arguments
         )
         LOG.debug("Output: " + str(output))
-        additional_input = {
-            "goal": goal.description,
-            "ability": ability.name,
-            "arguments": execution.arguments,
-        }
-        # TODO: Update step with additional output -> CREATE A CLASS ADDITIONAL OUTPUT WITH OVERVIEW + SUMMARY
-        step = await self.db.update_step(
+
+        return await self.update_step(
             task_id,
             step.step_id,
-            status=StepStatus.completed.value,
-            additional_input=additional_input,
-            output=output,
+            execution.action,
+            goal.description,
+            execution.arguments,
+            output,
         )
-        return step
 
     def get_summary(self, steps: List[StepModel], show_uuid: bool = True):
         summary = ""
@@ -181,14 +171,46 @@ class ForgeAgent(Agent):
                 return goal
         return None
 
-    # TODO: Verify that tasks are not connected!
-    def reset(self):
-        self.last_thought = ""
-        self.goals = []
-        self.iterations = 0
-
     def get_directories(self, task_id: str):
         path = (self.workspace.base_path / task_id).resolve()
         if not os.path.exists(path):
             os.makedirs(path)
         return list_directories(path)
+
+    def verify_ability(self, ability: str):
+        try:
+            ability = self.abilities.abilities[ability]
+            return ability
+        except Exception:
+            return None
+
+    def reset(self):
+        self.last_thought = ""
+        self.goals = []
+        self.iterations = 0
+
+    async def update_step(
+        self,
+        task_id: str,
+        step_id: str,
+        ability: str,
+        goal_description: dict,
+        arguments: str = "",
+        output: Optional[str] = None,
+    ):
+        if output is None:
+            output = f"Ability {ability} not found, verify that it contains only the name of the ability."
+
+        additional_input = {
+            "goal": goal_description,
+            "ability": ability,
+            "arguments": arguments,
+        }
+        step = await self.db.update_step(
+            task_id,
+            step_id,
+            status=StepStatus.completed.value,
+            additional_input=additional_input,
+            output=output,
+        )
+        return step

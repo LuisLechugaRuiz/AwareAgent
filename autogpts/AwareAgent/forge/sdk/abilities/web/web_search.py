@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import json
-import time
-from itertools import islice
+import os
 
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 from duckduckgo_search import DDGS
 
 from ..registry import ability
@@ -13,8 +14,8 @@ DUCKDUCKGO_MAX_ATTEMPTS = 3
 
 
 @ability(
-    name="web_search",
-    description="Searches the web. Use this ability only if explicitly requested on the task.",
+    name="get_relevant_links",
+    description="Get most relevant links from Google search.",
     parameters=[
         {
             "name": "query",
@@ -23,37 +24,53 @@ DUCKDUCKGO_MAX_ATTEMPTS = 3
             "required": True,
         }
     ],
-    output_type="list[str]",
+    output_type="str",
 )
-async def web_search(agent, task_id: str, query: str) -> str:
-    """Return the results of a Google search
+async def get_relevant_links(agent, task_id: str, query: str) -> str:
+    """Return the results of a Google search using the official Google API
 
     Args:
         query (str): The search query.
-        num_results (int): The number of results to return.
 
     Returns:
         str: The results of the search.
     """
-    search_results = []
-    attempts = 0
-    num_results = 8
 
-    while attempts < DUCKDUCKGO_MAX_ATTEMPTS:
-        if not query:
-            return json.dumps(search_results)
+    try:
+        # Get the Google API key and Custom Search Engine ID from the config file
+        api_key = os.getenv("GOOGLE_API_KEY")
+        custom_search_engine_id = os.getenv("GOOGLE_CUSTOM_SEARCH_ENGINE_ID")
 
-        results = DDGS().text(query)
-        search_results = list(islice(results, num_results))
+        # Initialize the Custom Search API service
+        service = build("customsearch", "v1", developerKey=api_key)
 
-        if search_results:
-            break
+        # Send the search query and retrieve the results
+        result = (
+            service.cse()
+            .list(q=query, cx=custom_search_engine_id, num=10)  # TODO: set by cfg
+            .execute()
+        )
 
-        time.sleep(1)
-        attempts += 1
+        # Extract the search result items from the response
+        search_results = result.get("items", [])
 
-    results = json.dumps(search_results, ensure_ascii=False, indent=4)
-    return safe_google_results(results)
+        # Create a list of only the URLs from the search results
+        search_results_links = [item["link"] for item in search_results]
+
+        return safe_google_results(search_results_links)
+
+    except HttpError as e:
+        # Handle errors in the API call
+        error_details = json.loads(e.content.decode())
+
+        # Check if the error is related to an invalid or missing API key
+        if error_details.get("error", {}).get(
+            "code"
+        ) == 403 and "invalid API key" in error_details.get("error", {}).get(
+            "message", ""
+        ):
+            return "The provided Google API key is invalid or missing."
+        return f"Failed with exception {e}. Error: {str(error_details)}"
 
 
 def safe_google_results(results: str | list) -> str:

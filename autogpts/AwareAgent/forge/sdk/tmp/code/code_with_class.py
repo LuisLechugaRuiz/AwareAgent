@@ -13,14 +13,26 @@ LOG = ForgeLogger(__name__)
     description="Generates Python code and saves it into a file.",
     parameters=[
         {
+            "name": "class_name",
+            "description": "A string with the name of the class to create. Empty string if no class should be created.",
+            "type": "string",
+            "required": False,
+        },
+        {
+            "name": "class_description",
+            "description": "The Google-style docstring of the class (if any), including a detailed description, Args, and Returns. Empty string if no class should be created.",
+            "type": "string",
+            "required": False,
+        },
+        {
             "name": "functions",
             "description": "A list of dictionaries, where each dictionary contains a function signature as a key and a Google-style docstring as a value.",
             "type": "List[Dict[str, str]]",
             "required": True,
         },
         {
-            "name": "main_description",
-            "description": "A description of the __main__ block and the arguments needed to run the code. Is important you define it explicitely as we will use it to execute the code later.",
+            "name": "main_function_description",
+            "description": "A description of the main function and the arguments needed to run the code. Is important you define it explicitely as we will use it to execute the code later.",
             "type": "string",
             "required": True,
         },
@@ -37,17 +49,20 @@ async def create_code(
     agent,
     task_id: str,
     functions: List[Dict[str, str]],
-    main_description: str,
+    main_function_description: str,
     filename: str,
+    class_name: str = "",
+    class_description: str = "",
 ) -> str:
     """
     Generates a Python class code given the class name, description, functions, and filename. The method
     creates a class definition, writes function signatures with docstrings, and saves the code to the specified file.
 
     Args:
-
+        class_name (str): The name of the class to create.
+        class_description (str): The Google-style docstring of the class, including a detailed description, Args, and Returns.
         functions (List[Dict[str, str]]): A list of dictionaries, where each dictionary contains a function signature as a key and a description as a value.
-        main_description (str): A description of the main function and the arguments used to run the code.
+        main_function_description (str): A description of the main function and the arguments used to run the code. 
         filename (str): The name of the file to save the code in.
 
     Returns:
@@ -62,8 +77,10 @@ async def create_code(
 
     prompt_engine = PromptEngine(agent.model)
     system_kwargs = {
+        "class_name": class_name,
+        "class_description": class_description,
         "functions": edited_functions,
-        "main_description": main_description,
+        "main_function_description": main_function_description,
     }
     system = prompt_engine.load_prompt("abilities/code", **system_kwargs)
 

@@ -26,6 +26,8 @@ selenium = "^4.13.0"
 bs4 = "^0.0.1"
 pandasai = { git = "git@github.com:LuisLechugaRuiz/pandas-ai.git" }
 pandas = "^1.5.3"
+webdriver-manager = "^4.0.1"
+spacy = "^3.7.2"
 
 [tool.poetry.group.dev.dependencies]
 isort = "^5.12.0"

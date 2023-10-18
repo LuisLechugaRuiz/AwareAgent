@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Any, Dict, Tuple
-from pydantic import Field, PrivateAttr
+from pydantic import Field
 
 from forge.memory_tmp import Thought
 from forge.helpers.parser import ChatParser, LoggableBaseModel, get_json_schema
@@ -14,7 +14,6 @@ class Execution(LoggableBaseModel):
     arguments: Dict[str, Any] = Field(
         description="A dictionary with the action arguments where keys and values are both strings, e.g., {'arg1': 'value1', 'arg2': 'value2'}. You must provide the EXACT arguments (as declared in 'Args' section of each action) with their expected format that the action requires. Failure to do so will prevent the action from executing correctly!"
     )
-    _ability: str = PrivateAttr(default=None)
 
     @classmethod
     async def get_execution(
@@ -51,9 +50,3 @@ class Execution(LoggableBaseModel):
             containers=[Thought, Execution],
         )
         return action_response[0], action_response[1]
-
-    def get_ability(self) -> str:
-        return self._ability
-
-    def set_ability(self, ability: str):
-        self._ability = ability
