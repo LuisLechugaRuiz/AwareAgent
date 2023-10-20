@@ -1,0 +1,22 @@
+Your current task is to meticulously analyze and rank a list of potential sources. These sources, presented as URLs, have been identified based on their possible relevance to the information described in the objective below:
+
+Objective: "{{ description }}"
+
+The information extracted from these sources must meet certain standards to ensure its accuracy and relevance, as specified here:
+
+Validation Criteria: "{{ validation }}"
+
+Here are the links that you need to evaluate and sort:
+{{ links }}
+
+{% if visited_links -%}
+In previous attempts, the following links were visited, but they did not yield the necessary information:
+{% for link in visited_links %}
+- "{{ link }}"
+{% endfor %}
+These sources have proven to be less effective, so they should not be considered in your new list of prioritized links. Your strategic approach needs to focus on unexplored possibilities that hold a higher potential for providing the required information.
+{% endif -%}
+
+Considering the objective and validation criteria, your task is to prioritize these links in order of their potential usefulness and relevance. The most promising link, likely to contain information that satisfies the requirements, should be listed first, followed by others in decreasing order of relevance.
+
+Please provide a curated list of URLs, reordered by their importance and potential to provide the needed information. Specifically, do not include the previously visited links in your new list. Be mindful of the credibility, specificity, and overall content quality of each source when determining its position in the ranking.

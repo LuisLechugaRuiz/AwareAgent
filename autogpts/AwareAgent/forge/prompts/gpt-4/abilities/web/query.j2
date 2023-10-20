@@ -1,0 +1,19 @@
+Your task is to create a highly targeted and effective Google search query to retrieve information. The specific information we're seeking is as follows: 
+{{ description }}
+
+To ensure the accuracy and relevance of the obtained information, your search results must meet the following criteria for validation: 
+{{ validation }}
+
+{% if previous_queries %}
+Despite your diligent efforts, previous search queries didn't yield the necessary results for successful validation. Below are your previous attempts, along with the specific outcomes each query produced:
+
+{% for query_info in previous_queries %}
+    - Query: "{{ query_info.0 }}"
+      Result: "{{ query_info.1 }}"
+{% endfor %}
+
+The upcoming search query must be refined and strategically formulated to fetch the remaining information necessary to meet the validation standards. Consider the gaps in previous search results, and adjust your approach to successfully retrieve the required information.
+Be creative creating new queries that can yield better answers based on previous results.
+{% endif %}
+
+Remember, the effectiveness of your query is crucial. Use precise terms, consider using quotes for exact phrases, and think about the context in which the desired information might be presented online.

@@ -11,7 +11,7 @@ class Goal(LoggableBaseModel):
         "The name of the ability (only name, without arguments) that should be used to achieve the goal should be one of the available capabilities, is very important that you verify that the goal can be achieved using this ability."
     )
     validation_condition: str = Field(
-        "The condition that should be met to validate the goal. It should be used as a post-condition for current goal and pre-condition for the next goal. E.g: 'The file 'x' is created properly.'"
+        "Explicit criteria acting as the benchmark for goal completion, essential for assessing the outcome's alignment with desired objectives. It serves as a conclusive checkpoint for the current goal and a foundational prerequisite for subsequent objectives"
     )
     status: str = Field(
         "Should be one of the following: NOT_STARTED, IN_PROGRESS, SUCCEEDED, FAILED"

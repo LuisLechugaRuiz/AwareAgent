@@ -12,7 +12,8 @@ from forge.helpers.parser.fix_format_prompt import (
 
 from forge.sdk import (
     ForgeLogger,
-    chat_completion_request
+    PromptEngine,
+    chat_completion_request,
 )
 
 LOG = ForgeLogger(__name__)
@@ -39,12 +40,17 @@ class ChatParser(Generic[T]):
     async def get_parsed_response(
         self,
         system: str,
-        user: str,
         containers: List[Type[T]],
         retries: int = 2,
         fix_retries: int = 1,
     ) -> List[T]:
         output = []
+        prompt_engine = PromptEngine(self.model)
+        user_kwargs = {
+            "schema": get_json_schema(containers)
+        }
+        user = prompt_engine.load_prompt("new/user", **user_kwargs)
+
         response = await self.get_response(system=system, user=user)
         for container in containers:
             success = False

@@ -3,8 +3,8 @@ from forge.sdk.abilities.registry import ability
 
 
 @ability(
-    name="get_GPT4_help",
-    description="Prompt GPT-4 to help you accomplish your goals. Useful when you need to perform intermediate steps. Keep in mind that the only info available to GPT-4 will be the one added on this prompt, so please provide a very detailed description of the problem.",
+    name="ask_to_GPT4",
+    description="Prompt GPT-4 to help you accomplish your goals. Useful when you need to perform intermediate steps. Keep in mind that the only info available to GPT-4 will be the one added on this prompt, so please provide a very detailed description of the problem. Use this ability only to compute intermediate steps, consider that GPT-4 doesn't have access to internet.",
     parameters=[
         {
             "name": "prompt",

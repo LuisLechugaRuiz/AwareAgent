@@ -1,0 +1,15 @@
+{%- if meta %}
+Your task is to write a very detailed final summary of the following summaries:
+{%- else %}
+Your task is to write a very detailed summary of the following text:
+{%- endif %}
+Incorporate all crucial details including, but not limited to, relevant citations, names, links, exact figures and any other pertinent information.
+
+{{ text }}
+{%- if question %}
+Prioritize the information in the text that is most relevant to the following question:
+
+{{ question }}
+{%- endif %}
+
+Don't add any additional content to your response as I will move the summary directly to a file.

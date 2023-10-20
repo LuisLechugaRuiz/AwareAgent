@@ -130,6 +130,7 @@ async def execute_python_file(
     if not str(file_name).endswith(".py"):
         return f"Invalid type of file_name: {file_name}. Only .py files are allowed."
     workspace = agent.workspace.base_path / task_id
+    # TODO: Move to docker container
     result = subprocess.run(
         ["python", "-B", str(file_name)] + args,
         capture_output=True,

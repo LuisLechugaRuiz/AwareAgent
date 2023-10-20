@@ -11,7 +11,7 @@ LOG = ForgeLogger(__name__)
 
 class Plan(LoggableBaseModel):
     goals: list[Goal] = Field(
-        description="The updated list of goals that you should work on, consider prevoius goals and update them based on new information"
+        description="The updated list of goals that you should work on, consider previous goals and update them based on new information"
     )
     search_queries: list[str] = Field(
         description="A list of queries that need to be answered in order to retrieve the relevant context for the execution of the action tied to the highest priority goal"
@@ -28,13 +28,7 @@ class Plan(LoggableBaseModel):
         summary=None,
         goals=None,
     ) -> Tuple[Thought, "Plan"]:
-        # Load the task prompt with the defined task parameters
         prompt_engine = PromptEngine(model)
-        user_kwargs = {
-            "schema": get_json_schema([Thought, Plan])
-        }
-        user = prompt_engine.load_prompt("new/user", **user_kwargs)
-
         system_kwargs = {
             "time": datetime.now().time(),
             "task": task,
@@ -45,13 +39,11 @@ class Plan(LoggableBaseModel):
             "directories": directories,
         }
         system = prompt_engine.load_prompt("new/plan", **system_kwargs)
-        LOG.debug("Plan SYSTEM: " + str(system))
-        LOG.debug("Plan USER Prompt: " + str(user))
+        LOG.debug("Plan prompt: " + str(system))
 
         chat_parser = ChatParser(model)
         plan_response = await chat_parser.get_parsed_response(
             system=system,
-            user=user,
             containers=[Thought, Plan],
         )
         return plan_response[0], plan_response[1]

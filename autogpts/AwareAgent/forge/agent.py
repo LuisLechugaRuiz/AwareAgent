@@ -63,19 +63,9 @@ class ForgeAgent(Agent):
             summary = self.get_summary(steps)
 
         await self.plan_stage(task, steps, summary)
-        goal = self.get_goal()
-        if goal is None:
-            LOG.info("No goals found. Exiting.")
-            steps[-1].is_last = True
-            return steps[-1]
-        if self.iterations > self.max_iterations:
-            LOG.info("Exiting due to too many iterations.")
-            steps[-1].is_last = True
-            return steps[-1]
-
         # await self.attention_stage(task)  # TODO: Implement me.
 
-        step = await self.execute_stage(task, goal, step_request, summary)
+        step = await self.execute_stage(task, step_request, summary)
         self.iterations += 1
         return step
 
@@ -104,12 +94,30 @@ class ForgeAgent(Agent):
         return True
 
     async def execute_stage(
-        self, task: Task, goal: Goal, step_request: StepRequestBody, summary: str = None
+        self, task: Task, step_request: StepRequestBody, summary: str = None
     ):
         task_id = task.task_id
         step = await self.db.create_step(
             task_id=task_id, input=step_request, is_last=False
         )
+        try:
+            goal = self.get_goal()
+            if goal is None:
+                LOG.info("No goals found. Exiting.")
+                step.is_last = True
+                return step
+            if self.iterations > self.max_iterations:
+                LOG.info("Exiting due to too many iterations.")
+                step.is_last = True
+                return step
+        except Exception as e:
+            return await self.update_step(
+                task_id,
+                step.step_id,
+                goal.ability,
+                goal.description,
+                output=f"Wrong goal. Error: {e}",
+            )
 
         ability = self.verify_ability(goal.ability)
         if ability is None:
@@ -140,9 +148,20 @@ class ForgeAgent(Agent):
             )
 
         # Execute the ability
-        output = await self.abilities.run_ability(
-            task_id, execution.action, **execution.arguments
-        )
+        try:
+            output = await self.abilities.run_ability(
+                task_id, execution.action, **execution.arguments
+            )
+        except Exception as e:
+            error_output = f"Error executing ability {execution.action} due to: {e}"
+            return await self.update_step(
+                task_id,
+                step.step_id,
+                execution.action,
+                goal.description,
+                arguments=execution.arguments,
+                output=error_output,
+            )
         LOG.debug("Output: " + str(output))
 
         return await self.update_step(

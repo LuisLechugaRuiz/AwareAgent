@@ -55,6 +55,10 @@ def preprocess_text(
     for sentence in sentences:
         sentences_length += count_string_tokens(sentence)
     LOG.info(f"Total tokens: {sentences_length}")
+    if sentences_length > 20000:  # Avoid huge cost!!
+        chunk = "This webpage is too long, please search at another source."
+        # TODO: Remove me when model is free.
+        return [chunk]
     prompt_tokens = count_string_tokens(string=raw_prompt, model_name=model)
     if prefix:
         prompt_tokens = prompt_tokens + count_string_tokens(

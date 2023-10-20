@@ -1,0 +1,22 @@
+Your ongoing task involves a strategic analysis of the content sourced from the web. Given the specific query you utilized ("{{ query }}"), you have uncovered the following text to draw from:
+"{{ text }}"
+
+Now, you must sift through this text to extract and refine information that directly aligns with the specific objectives described below:
+
+Objective: "{{ description }}"
+
+Additionally, the credibility and relevance of your extracted information must adhere to the following standards to ensure it is both accurate and useful:
+
+Validation Criteria: "{{ validation }}"
+
+{% if current_answer -%}
+Previously, you extracted the following information based on the query and source text:
+"{{ current_answer }}"
+Despite these details, the information still doesn't fully satisfy the requirements outlined in the validation criteria.
+{% endif -%}
+
+In your refined answer, it's crucial to include only the most relevant details that cater to the objective, eliminating any superfluous information. Your response should be a clear and concise distillation of the necessary information from the provided text, honing in on the aspects that are most pertinent to the objectives and standards provided.
+
+As you proceed, understand that not all valuable insights may fulfill the criteria in full. If you discern information that contributes to the query's answer but doesn't meet every benchmark, you must mark this as a 'partial answer.' This acknowledgment plays a crucial role in the iterative refinement process, gradually building towards a fully validated response.
+
+Remember, precision and relevance are key in ensuring that the information extracted is of the highest quality and utility. Please proceed with the task with these critical factors in mind.

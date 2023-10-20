@@ -200,12 +200,18 @@ LINKS_TO_RETURN = 20
             "type": "string",
             "required": False,
         },
+        {
+            "name": "get_links",
+            "description": "Wether to get the links cited at the website.",
+            "type": "bool",
+            "required": False,
+        },
     ],
     output_type="str",
 )
 # @validate_url
 async def read_webpage(
-    agent, task_id: str, url: str, question: str = ""
+    agent, task_id: str, url: str, question: str = "", get_links: bool = True
 ) -> str:
     """Browse a website and return the answer and links to the user
 
@@ -233,7 +239,7 @@ async def read_webpage(
         # Limit links to LINKS_TO_RETURN
         if len(links) > LINKS_TO_RETURN:
             links = links[:LINKS_TO_RETURN]
-        if links:
+        if get_links and links:
             text += f"\n\nThese are links extracted from the web:\n{links}"
         return text
 
@@ -395,7 +401,10 @@ async def summarize_text(
     # Get chunks
     raw_prompt = await get_prompt(agent, text="", question=question, is_meta=False)
 
-    chunks = preprocess_text(raw_prompt, text, chunk_max_tokens=MAX_TOKENS, model=agent.model)
+    # TODO: USE GPT-4 during benchmark!!
+    model = "gpt-3.5-turbo"
+    # model = agent.model
+    chunks = preprocess_text(raw_prompt, text, chunk_max_tokens=MAX_TOKENS, model=model)
     summaries = []
     for chunk in chunks:
         summaries.append(await get_summary(agent, chunk, question, is_meta=False))
@@ -414,9 +423,12 @@ async def summarize_text(
 async def get_summary(
     agent, text: str, question: Optional[str], is_meta: bool = False
 ) -> str:
+    # TODO: USE GPT-4 during benchmark!!
+    model = "gpt-3.5-turbo"
+    # model = agent.model
     system = await get_prompt(agent, text, question, is_meta)
 
-    chat_parser = ChatParser(agent.model)
+    chat_parser = ChatParser(model)
     summary = await chat_parser.get_response(
         system=system,
         user="Remember to only return the summary.",
@@ -425,7 +437,10 @@ async def get_summary(
 
 
 async def get_prompt(agent, text: str, question: Optional[str], is_meta: bool = False) -> str:
-    prompt_engine = PromptEngine(agent.model)
+    # TODO: USE GPT-4 during benchmark!!
+    model = "gpt-3.5-turbo"
+    # model = agent.model
+    prompt_engine = PromptEngine(model)
     system_kwargs = {
         "meta": is_meta,
         "text": text,

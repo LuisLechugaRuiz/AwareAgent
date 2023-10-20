@@ -3,7 +3,7 @@ from typing import Any, Dict, Tuple
 from pydantic import Field
 
 from forge.memory_tmp import Thought
-from forge.helpers.parser import ChatParser, LoggableBaseModel, get_json_schema
+from forge.helpers.parser import ChatParser, LoggableBaseModel
 from forge.sdk import PromptEngine
 
 
@@ -27,11 +27,6 @@ class Execution(LoggableBaseModel):
         directories: str,
     ) -> Tuple[Thought, "Execution"]:
         prompt_engine = PromptEngine(model)
-        user_kwargs = {
-            "schema": get_json_schema([Thought, Execution])
-        }
-        user = prompt_engine.load_prompt("new/user", **user_kwargs)
-
         system_kwargs = {
             "time": datetime.now().time(),
             "task": task,
@@ -46,7 +41,6 @@ class Execution(LoggableBaseModel):
         chat_parser = ChatParser(model)
         action_response = await chat_parser.get_parsed_response(
             system=system,
-            user=user,
             containers=[Thought, Execution],
         )
         return action_response[0], action_response[1]
