@@ -99,5 +99,4 @@ def parse(text: str, pydantic_object: Type[T]) -> ParseResult[T]:
         result = parse_pydantic_object(text, pydantic_object)
         return ParseResult(result=cast(T, result))
     except Exception as e:
-        error_message = f"I couldn't parse your format for object: {pydantic_object.__name__}. Got exception: {e}."
-        return ParseResult(error_message=error_message)
+        return ParseResult(error_message=e)

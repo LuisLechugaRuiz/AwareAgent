@@ -1,5 +1,21 @@
 #!/bin/bash
 
+# Pull all dependent Docker images
+DEPENDENT_IMAGES=(
+    "semitechnologies/weaviate:1.18.3"
+    # Add more images here if needed...
+)
+
+echo "Pulling dependent Docker images..."
+for image in "${DEPENDENT_IMAGES[@]}"; do
+    echo "Pulling $image..."
+    docker pull $image
+done
+
+echo "Starting services..."
+docker-compose -f docker-compose.yml up -d
+
+
 kill $(lsof -t -i :8000)
 
 if [ ! -f .env ]; then

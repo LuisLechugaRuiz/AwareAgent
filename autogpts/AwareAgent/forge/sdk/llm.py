@@ -3,7 +3,7 @@ import typing
 import openai
 from tenacity import retry, stop_after_attempt, wait_random_exponential
 
-from .forge_log import ForgeLogger
+from forge.utils.logger.console_logger import ForgeLogger
 from litellm import completion, acompletion, AuthenticationError, InvalidRequestError
 
 LOG = ForgeLogger(__name__)

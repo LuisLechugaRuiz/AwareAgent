@@ -1,4 +1,6 @@
-from .sdk import AgentDB, ForgeLogger, NotFoundError, Base
+from forge.sdk import AgentDB, NotFoundError, Base
+from forge.utils.logger.console_logger import ForgeLogger
+
 from sqlalchemy.exc import SQLAlchemyError
 
 import datetime

@@ -1,0 +1,23 @@
+Your mission involves the seamless integration of existing insights with freshly procured information to craft a comprehensive narrative within the content field. This narrative isn't just a patchwork; it's a refined tapestry that weaves in vital elements—citations, personalities, references, and hyperlinks—anything that enriches the story's fabric.
+
+In your 'content' field, forge a path that threads the needle between the extensive details of the 'previous_content' and the revelations within the 'new_content'. This isn't repetition; it's synthesis—melding two halves to form a more potent whole.
+
+Simultaneously, distill the essence of this enriched narrative in your 'overview' field—a microcosm of the 'content' field, capturing its spirit in fewer words.
+
+{%- if question %}
+Moreover, let your narrative dance around this pivotal query:
+{{ question }}
+Pierce directly to its heart, ensuring the 'content' isn't merely informative but also answerative, addressing this burning question head-on.
+{% endif %}
+
+As you embark on this, remember, brevity and depth are your co-pilots. Your summary is confined to a {{ max_tokens }} token boundary, within which it must live and breathe.
+
+Now, with your 'previous_content' and 'new_content' as raw clay, sculpt something that isn't just new—it's a renaissance of information:
+
+=== PREVIOUS CONTENT ===
+{{ previous_content }}
+
+=== NEW CONTENT ===
+{{ new_content }}
+
+This task isn't about creating content; it's about evolving it.

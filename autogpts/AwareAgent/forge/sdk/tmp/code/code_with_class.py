@@ -1,6 +1,7 @@
 from forge.helpers.parser import ChatParser
 from forge.sdk.abilities.registry import ability
-from forge.sdk import ForgeLogger, PromptEngine
+from forge.sdk import PromptEngine
+from forge.utils.logger.console_logger import ForgeLogger
 
 from typing import Dict, List
 import subprocess
@@ -75,7 +76,7 @@ async def create_code(
         for signature, docstring in function_dict.items():
             edited_functions += f"{signature}\n{docstring}\n"
 
-    prompt_engine = PromptEngine(agent.model)
+    prompt_engine = PromptEngine(agent.get_model())
     system_kwargs = {
         "class_name": class_name,
         "class_description": class_description,
@@ -84,7 +85,7 @@ async def create_code(
     }
     system = prompt_engine.load_prompt("abilities/code", **system_kwargs)
 
-    chat_parser = ChatParser(agent.model)
+    chat_parser = ChatParser(agent.get_model())
     code = await chat_parser.get_response(
         system=system,
         user="Remember to only return the code.",
@@ -98,14 +99,16 @@ async def create_code(
     if isinstance(code, str):
         code = code.encode()
     agent.workspace.write(task_id=task_id, path=filename, data=code)
-    await agent.db.create_artifact(
-        task_id=task_id,
-        file_name=filename,
-        relative_path="",
-        agent_created=True,
-    )
-    result = f"Code saved on file {filename}"
-    return result
+    try:
+        await agent.db.create_artifact(
+            task_id=task_id,
+            file_name=filename,
+            relative_path="",
+            agent_created=True,
+        )
+        return f"Successfully saved code on: {filename}"
+    except Exception as e:
+        return f"Failing to create file: {filename} in the database. Error: {e}"
 
 
 @ability(

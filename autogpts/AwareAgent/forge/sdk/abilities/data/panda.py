@@ -1,21 +1,45 @@
+import csv
 import pandas as pd
+from pandasai import Agent as PandasAgent
 from pandasai.smart_dataframe import SmartDataframe
 from pandasai.llm.openai import OpenAI
+from pydantic import Field
+from typing import Tuple, List
+from io import StringIO
 
 from forge.sdk.abilities.registry import ability
-from forge.sdk import ForgeLogger
+from forge.sdk import PromptEngine
+from forge.utils.logger.file_logger import FileLogger
+from forge.helpers.parser import ChatParser, LoggableBaseModel
 
-LOG = ForgeLogger(__name__)
+
+class Answer(LoggableBaseModel):
+    reasoning: str = Field(
+        description="Detailed rationale outlining the analytical process used to determine the appropriateness of the answer in relation to the question posed."
+    )
+    fix: str = Field(
+        description="Specify the error and suggest a fix to address the issue identified in the reasoning. Empty if the answer is already valid."
+    )
+    validated: bool = Field(
+        description="Confirmation status as to whether the provided answer accurately and sufficiently addresses the presented question."
+    )
+
+
+class ShouldShowFullDfs(LoggableBaseModel):
+    reasoning: str = Field(
+        description="Explanation of the analysis leading to the decision of whether to show full dfs or not."
+    )
+    should_show_full_dfs: bool = Field(description="Flag to set if full dfs should be shown.")
 
 
 @ability(
-    name="proccess_csv_and_save",
-    description="Proccess a CSV and save the result on another file using natural language queries.",
+    name="process_csv_and_save",
+    description="Process CSV files and save the result on another file using natural language queries.",
     parameters=[
         {
-            "name": "input_filename",
-            "description": "The name of the CSV file containing the structured data to analyze.",
-            "type": "string",
+            "name": "input_filenames",
+            "description": "The names of the CSV files containing the structured data to analyze.",
+            "type": "List[string]",
             "required": True,
         },
         {
@@ -26,52 +50,50 @@ LOG = ForgeLogger(__name__)
         },
         {
             "name": "request",
-            "description": "The request that will be used to proccess the data and save the result.",
+            "description": "The request that will be used to process the data and save the result.",
             "type": "string",
             "required": True,
         },
     ],
     output_type="str",
 )
-async def proccess_csv_and_save(
-    agent, task_id: str, input_filename: str, output_filename: str, request: str
+async def process_csv_and_save(
+    agent, task_id: str, input_filenames: List[str], output_filename: str, request: str
 ) -> str:
-    attempts = 2
-    initial_request = request
-    while attempts > 0:
-        response = await pandasai_chatbot(
-            agent, task_id, input_filename, request, "dataframe"
-        )
+    response, success = await pandasai_chatbot(
+        agent, task_id, input_filenames, request
+    )
+    if success:
         # Check if the response is a DataFrame before saving
         if isinstance(response, SmartDataframe):
-            dataframe = response.original_import()
-            # Construct the file path
-            output_filepath = agent.workspace.base_path / task_id / output_filename
-
             # Save DataFrame to CSV
+            output_filepath = agent.workspace.base_path / task_id / output_filename
+            dataframe = response.original_import()
             dataframe.to_csv(output_filepath, index=False)
-            await agent.db.create_artifact(
-                task_id=task_id,
-                file_name=output_filename,
-                relative_path="",
-                agent_created=True,
-            )
-            return f"Dataframe was saved successfully to {output_filename}"
+        else:
+            # Save response to file
+            if isinstance(response, str):
+                response = response.encode("utf-8")
+            agent.workspace.write(task_id=task_id, path=output_filename, data=response)
+        await agent.db.create_artifact(
+            task_id=task_id,
+            file_name=output_filename,
+            relative_path="",
+            agent_created=True,
+        )
+        return f"Data saved successfully at: {output_filename}"
     else:
-        request = f"{initial_request}\n The previous response failed due to: {str(response)}, please try again."
-        attempts -= 1
-
-    return f"Failed with error: {str(response)}"
+        return f"Error: {response}"
 
 
 @ability(
     name="get_insights_from_csv",
-    description="Extract insights from a CSV using natural language queries.",
+    description="Extract insights from CSV files using natural language queries.",
     parameters=[
         {
-            "name": "filename",
-            "description": "The name of the CSV file containing the structured data to analyze.",
-            "type": "string",
+            "name": "filenames",
+            "description": "The names of the CSV files containing the structured data to analyze.",
+            "type": "List[string]",
             "required": True,
         },
         {
@@ -80,45 +102,124 @@ async def proccess_csv_and_save(
             "type": "string",
             "required": True,
         },
-        {
-            "name": "output_format",
-            "description": "The expected output format. Only 'number' and 'string' are supported!",
-            "type": "string",
-            "required": True,
-        },
     ],
     output_type="str",
 )
 async def get_insights_from_csv(
-    agent, task_id: str, filename: str, question: str, output_format: str
+    agent, task_id: str, filenames: List[str], question: str
 ) -> str:
-    if output_format not in ["number", "string"]:
-        output_format = "string"
-    response_str = await pandasai_chatbot(
-        agent, task_id, filename, question, output_format
-    )
+    response_str, _ = await pandasai_chatbot(agent, task_id, filenames, question)
     return response_str
 
 
 async def pandasai_chatbot(
-    agent, task_id: str, filepath: str, question: str, output_type: str
-) -> str:
-    attempts = 2
+    agent,
+    task_id: str,
+    filepaths: List[str],
+    question: str,
+) -> Tuple[str, bool]:
+    logger = FileLogger("pandasai_chatbot")
+    dfs = []
+    full_processed_data = ""
+    for file in filepaths:
+        model = agent.get_model()
+        raw_data = agent.workspace.read(task_id=task_id, path=file).decode("utf-8")
+        try:
+            processed_data = preprocess_csv(raw_data)
+        except ValueError as e:
+            logger.error(f"Error: {e}")
+            processed_data = raw_data
+        full_processed_data += processed_data
+        csv_buffer = StringIO(processed_data)
+        dfs.append(pd.read_csv(csv_buffer))
+
+    show_full_dfs = await preprocess_request(model, question, full_processed_data)
+    logger.info(f"show_full_dfs: {show_full_dfs}")
+
+    llm = OpenAI()
+    llm.model = model
+    panda_agent = PandasAgent(
+        dfs,
+        config={"llm": llm, "verbose": True, "show_full_dfs": show_full_dfs, "enable_cache": False},
+        memory_size=10,
+    )
+
+    attempts = 3
     initial_question = question
     error = ""
     while attempts > 0:
         try:
-            full_filepath = agent.workspace.base_path / task_id / filepath
-            df = pd.read_csv(full_filepath)
-            llm = OpenAI()
-            llm.model = agent.model
-
-            df = SmartDataframe(df, config={"llm": llm})
-            response = df.chat(question, output_type)
-            LOG.debug(f"Response: + {str(response)}")
-            return response
+            for df in dfs:
+                logger.debug(f"df is: {str(df)}")
+            response = panda_agent.chat(question)
+            logger.debug(f"Response: {str(response)}")
+            validation = await verify_response(model, initial_question, str(response))
+            if validation.validated:
+                return response, True
+            else:
+                question = f"Initial question: {initial_question}\nAdd this fix: {validation.fix}"
+                attempts -= 1
+                error = validation.reasoning
         except Exception as e:
-            question = f"{initial_question} \n The previous response failed due to: {str(e)}, please try again."
+            question = f"{initial_question}\nThe previous response failed due to: {str(e)}, please try again."
             attempts -= 1
             error = e
-    return f"An error occurred: {str(error)}"
+    return f"An error occurred: {str(error)}", False
+
+
+async def verify_response(model, question, answer):
+    verify_kwargs = {
+        "question": question,
+        "answer": answer,
+    }
+    prompt_engine = PromptEngine(model)
+    system = prompt_engine.load_prompt("abilities/data/validation", **verify_kwargs)
+
+    chat_parser = ChatParser(model)
+    response = await chat_parser.get_parsed_response(
+        system=system,
+        containers=[Answer],
+    )
+    return response[0]
+
+
+def preprocess_csv(raw_data, new_delimiter=","):
+    possible_delimiters = ["\t", ";", "    "]  # Tab, semicolon, and four spaces
+
+    # Check the first line (or more lines if necessary) to detect the delimiter.
+    first_line = raw_data.split("\n")[0]
+    detected_delimiter = None
+    for d in possible_delimiters:
+        if d in first_line:
+            detected_delimiter = d
+            break
+
+    if detected_delimiter is None:
+        return raw_data
+
+    # Use the detected delimiter to parse and reformat the data.
+    reader = csv.reader(raw_data.splitlines(), delimiter=detected_delimiter)
+
+    # Creating a string buffer to export the CSV data
+    output = StringIO()
+    writer = csv.writer(output, delimiter=new_delimiter)
+
+    for row in reader:
+        writer.writerow(row)
+
+    return output.getvalue()
+
+
+async def preprocess_request(model: str, request: str, input: str) -> str:
+    request_kwargs = {"request": request, "input": input}
+    prompt_engine = PromptEngine(model)
+    system = prompt_engine.load_prompt(
+        "abilities/data/preprocess_request", **request_kwargs
+    )
+
+    chat_parser = ChatParser(model)
+    response = await chat_parser.get_parsed_response(
+        system=system,
+        containers=[ShouldShowFullDfs],
+    )
+    return response[0].should_show_full_dfs

@@ -41,12 +41,16 @@ from bs4 import BeautifulSoup
 from requests.compat import urljoin
 
 from forge.helpers.parser import ChatParser
-from forge.utils.proccess_tokens import count_string_tokens, preprocess_text
-from forge.sdk import PromptEngine, ForgeLogger
+from forge.utils.process_tokens import count_string_tokens, preprocess_text
+from forge.sdk import PromptEngine
+from forge.sdk.config.config import Config
 from forge.sdk.errors import *
+from forge.utils.logger.console_logger import ForgeLogger
 
 
 LOG = ForgeLogger(__name__)
+
+PROTECTED_WEBS = ["twitter", "facebook", "instagram", "reddit"]
 
 
 def extract_hyperlinks(soup: BeautifulSoup, base_url: str) -> list[Tuple[str, str]]:
@@ -180,7 +184,7 @@ def check_local_file_access(url: str) -> bool:
 
 logger = logging.getLogger(__name__)
 
-MAX_TOKENS = 3000
+MAX_TOKENS = 4000
 LINKS_TO_RETURN = 20
 
 
@@ -209,9 +213,8 @@ LINKS_TO_RETURN = 20
     ],
     output_type="str",
 )
-# @validate_url
 async def read_webpage(
-    agent, task_id: str, url: str, question: str = "", get_links: bool = True
+    agent, task_id: str, url: str, question: str = "", get_links: bool = False
 ) -> str:
     """Browse a website and return the answer and links to the user
 
@@ -222,6 +225,16 @@ async def read_webpage(
     Returns:
         str: The answer and links to the user and the webdriver
     """
+    return await read_webpage_and_summarize(agent.get_model(), url, question, get_links)
+
+
+async def read_webpage_and_summarize(
+    model: str,
+    url: str,
+    question: str = "",
+    get_links: bool = False,
+    should_summarize: bool = True,
+) -> str:
     driver = None
     try:
         driver = open_page_in_browser(url)
@@ -232,9 +245,8 @@ async def read_webpage(
         if not text:
             return f"Website did not contain any text.\n\nLinks: {links}"
 
-        if count_string_tokens(text, agent.model) > MAX_TOKENS:
-            LOG.info("Summarizing text...")
-            text = await summarize_text(agent, text, question)
+        if should_summarize:
+            text = await summarize(text, model, question)
 
         # Limit links to LINKS_TO_RETURN
         if len(links) > LINKS_TO_RETURN:
@@ -248,7 +260,10 @@ async def read_webpage(
         # Just grab the first line.
         msg = e.msg.split("\n")[0]
         if "net::" in msg:
-            return "A networking error occurred while trying to load the page: " + re.sub(r"^unknown error: ", "", msg)
+            return (
+                "A networking error occurred while trying to load the page: "
+                + re.sub(r"^unknown error: ", "", msg)
+            )
         return f"Command execution error: {msg}"
     finally:
         if driver:
@@ -311,7 +326,14 @@ def open_page_in_browser(url: str) -> WebDriver:
     """
     logging.getLogger("selenium").setLevel(logging.CRITICAL)
     selenium_web_browser = "chrome"
-    selenium_headless = True
+
+    url_lower = url.lower()
+    if any(web in url_lower for web in PROTECTED_WEBS):
+        selenium_headless = False  # Set to non-headless mode for these sites
+        LOG.warning(f"Using non-headless mode for protected websites: {url}")
+    else:
+        selenium_headless = True  # Use headless mode for other sites
+
     options_available: dict[str, Type[BrowserOptions]] = {
         "chrome": ChromeOptions,
         "edge": EdgeOptions,
@@ -351,12 +373,12 @@ def open_page_in_browser(url: str) -> WebDriver:
 
         chromium_driver_path = Path("/usr/bin/chromedriver")
 
-        driver = ChromeDriver(
-            service=ChromeDriverService(str(chromium_driver_path))
-            if chromium_driver_path.exists()
-            else ChromeDriverService(ChromeDriverManager().install()),
-            options=options,
-        )
+    driver = ChromeDriver(
+        service=ChromeDriverService(str(chromium_driver_path))
+        if chromium_driver_path.exists()
+        else ChromeDriverService(ChromeDriverManager().install()),
+        options=options,
+    )
     driver.get(url)
 
     WebDriverWait(driver, 10).until(
@@ -379,7 +401,7 @@ def close_browser(driver: WebDriver) -> None:
 
 
 async def summarize_text(
-    agent,
+    model: str,
     text: str,
     question: Optional[str],
 ) -> str:
@@ -399,19 +421,16 @@ async def summarize_text(
     LOG.info(f"Text length: {text_length} characters")
 
     # Get chunks
-    raw_prompt = await get_prompt(agent, text="", question=question, is_meta=False)
+    raw_prompt = await get_prompt(model, text="", question=question, is_meta=False)
 
-    # TODO: USE GPT-4 during benchmark!!
-    model = "gpt-3.5-turbo"
-    # model = agent.model
     chunks = preprocess_text(raw_prompt, text, chunk_max_tokens=MAX_TOKENS, model=model)
     summaries = []
     for chunk in chunks:
-        summaries.append(await get_summary(agent, chunk, question, is_meta=False))
+        summaries.append(await get_summary(model, chunk, question, is_meta=False))
 
     if len(summaries) > 1:
         text = "\n\n".join(summaries)
-        summary = await get_summary(agent, text, question, is_meta=True)
+        summary = await get_summary(model, text, question, is_meta=True)
     else:
         summary = summaries[0]
 
@@ -421,12 +440,9 @@ async def summarize_text(
 
 
 async def get_summary(
-    agent, text: str, question: Optional[str], is_meta: bool = False
+    model: str, text: str, question: Optional[str], is_meta: bool = False
 ) -> str:
-    # TODO: USE GPT-4 during benchmark!!
-    model = "gpt-3.5-turbo"
-    # model = agent.model
-    system = await get_prompt(agent, text, question, is_meta)
+    system = await get_prompt(model, text, question, is_meta)
 
     chat_parser = ChatParser(model)
     summary = await chat_parser.get_response(
@@ -436,10 +452,9 @@ async def get_summary(
     return summary
 
 
-async def get_prompt(agent, text: str, question: Optional[str], is_meta: bool = False) -> str:
-    # TODO: USE GPT-4 during benchmark!!
-    model = "gpt-3.5-turbo"
-    # model = agent.model
+async def get_prompt(
+    model: str, text: str, question: Optional[str], is_meta: bool = False
+) -> str:
     prompt_engine = PromptEngine(model)
     system_kwargs = {
         "meta": is_meta,
@@ -448,3 +463,10 @@ async def get_prompt(agent, text: str, question: Optional[str], is_meta: bool = 
     }
     system = prompt_engine.load_prompt("abilities/summarize", **system_kwargs)
     return system
+
+
+async def summarize(text, model, question=None):
+    if count_string_tokens(text, model) > Config().get_max_model_tokens(model):
+        LOG.info("Summarizing text...")
+        text = await summarize_text(model, text, question)
+    return text

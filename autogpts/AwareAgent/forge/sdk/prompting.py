@@ -25,7 +25,7 @@ from typing import List
 
 from jinja2 import Environment, FileSystemLoader
 
-from .forge_log import ForgeLogger
+from forge.utils.logger.console_logger import ForgeLogger
 
 LOG = ForgeLogger(__name__)
 

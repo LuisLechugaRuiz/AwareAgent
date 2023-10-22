@@ -1,4 +1,4 @@
-Your current task is to meticulously analyze and rank a list of potential sources. These sources, presented as URLs, have been identified based on their possible relevance to the information described in the objective below:
+Your current task is to meticulously analyze and rank a list of potential sources. These sources, presented as detailed information from search results, have been identified based on their possible relevance to the information described in the objective below:
 
 Objective: "{{ description }}"
 
@@ -6,17 +6,18 @@ The information extracted from these sources must meet certain standards to ensu
 
 Validation Criteria: "{{ validation }}"
 
-Here are the links that you need to evaluate and sort:
-{{ links }}
-
-{% if visited_links -%}
-In previous attempts, the following links were visited, but they did not yield the necessary information:
-{% for link in visited_links %}
-- "{{ link }}"
+Here is the detailed information for each source that you need to evaluate and sort:
+{% for info in filtered_info %}
+-   Title: "{{ info.title }}"
+    URL: "{{ info.url }}"
+    {% if info.snippet -%}
+    Snippet: "{{ info.snippet }}"
+    {% else %}
+    Snippet: "Not available."
+    {% endif -%}
 {% endfor %}
-These sources have proven to be less effective, so they should not be considered in your new list of prioritized links. Your strategic approach needs to focus on unexplored possibilities that hold a higher potential for providing the required information.
-{% endif -%}
 
-Considering the objective and validation criteria, your task is to prioritize these links in order of their potential usefulness and relevance. The most promising link, likely to contain information that satisfies the requirements, should be listed first, followed by others in decreasing order of relevance.
+Your task is to sharply prioritize these sources based on their direct relevance to the validation criteria. The top source should hold clear potential to fulfill the specific requirements, superseding others in relevance. Successive entries should follow in a descending order of direct applicability.
 
-Please provide a curated list of URLs, reordered by their importance and potential to provide the needed information. Specifically, do not include the previously visited links in your new list. Be mindful of the credibility, specificity, and overall content quality of each source when determining its position in the ranking.
+Please compile a prioritized list of URLs, each chosen for its promise in offering direct, explicit, and substantial information pertinent to fulfilling the validation criteria. Avoid overvaluing general authority or broad relevance; the emphasis is on each source's capacity to contribute specific insights or data that resonate with the precise elements of the objective.
+This strategic assessment mandates a concentration on isolating those resources that promise detailed and directly applicable content, thereby ensuring alignment with the validation criteria's explicit directives.

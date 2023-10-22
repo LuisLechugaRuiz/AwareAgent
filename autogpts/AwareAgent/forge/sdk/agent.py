@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from .abilities.registry import AbilityRegister
 from .db import AgentDB
 from .errors import NotFoundError
-from .forge_log import ForgeLogger
+from forge.utils.logger.console_logger import ForgeLogger
 from .middlewares import AgentMiddleware
 from .routes.agent_protocol import base_router
 from .schema import *
@@ -202,6 +202,7 @@ class Agent:
             else:
                 file_path = artifact.relative_path
             retrieved_artifact = self.workspace.read(task_id=task_id, path=file_path)
+            LOG.debug("RETRIEVING ARTIFACT: " + str(artifact.file_name))
         except NotFoundError as e:
             raise
         except FileNotFoundError as e:

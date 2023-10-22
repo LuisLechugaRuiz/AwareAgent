@@ -2,9 +2,11 @@ from datetime import datetime
 from pydantic import Field
 from typing import Tuple
 
-from forge.memory_tmp import Goal, Thought
-from forge.helpers.parser import ChatParser, LoggableBaseModel, get_json_schema
-from forge.sdk import ForgeLogger, PromptEngine
+from forge.sdk.memory.utils.goal.goal import Goal
+from forge.sdk.memory.utils.thought.thought import Thought
+from forge.helpers.parser import ChatParser, LoggableBaseModel
+from forge.sdk import PromptEngine
+from forge.utils.logger.console_logger import ForgeLogger
 
 LOG = ForgeLogger(__name__)
 
@@ -30,7 +32,7 @@ class Plan(LoggableBaseModel):
     ) -> Tuple[Thought, "Plan"]:
         prompt_engine = PromptEngine(model)
         system_kwargs = {
-            "time": datetime.now().time(),
+            "date": datetime.now(),
             "task": task,
             "previous_thought": previous_thought,
             "summary": summary,

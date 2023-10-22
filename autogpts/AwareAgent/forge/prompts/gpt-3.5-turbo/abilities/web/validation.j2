@@ -1,22 +1,22 @@
-Your ongoing task involves a strategic analysis of the content sourced from the web. Given the specific query you utilized ("{{ query }}"), you have uncovered the following text to draw from:
+You are currently engaged in a meticulous process of analyzing and distilling information from content acquired via a specific web query ("{{ query }}"). 
+This is the data extracted from different sources:
 "{{ text }}"
 
-Now, you must sift through this text to extract and refine information that directly aligns with the specific objectives described below:
+Your mission is to dissect this content, extracting data that precisely aligns with the stated objective and meets the stringent validation criteria established for this task:
 
 Objective: "{{ description }}"
-
-Additionally, the credibility and relevance of your extracted information must adhere to the following standards to ensure it is both accurate and useful:
-
 Validation Criteria: "{{ validation }}"
+
+Amidst the diverse types of information and statements, your responsibility is to discern and extract the piece of data that is most aligned with the objective and satisfies the highest standard of veracity as per the validation criteria. This process is not about generalization or approximation; it's about identifying the most accurate representation of the requested information within the data.
 
 {% if current_answer -%}
 Previously, you extracted the following information based on the query and source text:
 "{{ current_answer }}"
-Despite these details, the information still doesn't fully satisfy the requirements outlined in the validation criteria.
+While insightful, this information hasn't fully met the stringent standards set by the validation criteria. It's vital to perceive this not as a standalone answer but as a foundation upon which you'll construct your refined response. The new answer you'll provide isn't supplemental but substitutive, necessitating a comprehensive inclusion of all pertinent details. Any element of value within this current data should be reevaluated, honed, and, if deemed essential, seamlessly integrated into your forthcoming submission.
 {% endif -%}
 
-In your refined answer, it's crucial to include only the most relevant details that cater to the objective, eliminating any superfluous information. Your response should be a clear and concise distillation of the necessary information from the provided text, honing in on the aspects that are most pertinent to the objectives and standards provided.
+In your pursuit of precision, it's crucial to understand that adapting or modifying the data to fit the criteria is not permissible. The goal is to find a piece of information that inherently meets the validation criteria without alteration or reinterpretation. Only when the data matches the set criteria exactly, without any need for adjustments, can 'criteria_met' be set to True.
 
-As you proceed, understand that not all valuable insights may fulfill the criteria in full. If you discern information that contributes to the query's answer but doesn't meet every benchmark, you must mark this as a 'partial answer.' This acknowledgment plays a crucial role in the iterative refinement process, gradually building towards a fully validated response.
+In summary, your refined response should serve as a paragon of precision, reflecting the most accurate elements of the provided data. It's essential to understand that you're seeking details that echo the validation criteria's exactness, not just an overarching narrative.
 
-Remember, precision and relevance are key in ensuring that the information extracted is of the highest quality and utility. Please proceed with the task with these critical factors in mind.
+Begin your response by methodically comparing all the different sources, step by step, and filtering out the most relevant data. Following this, meticulously verify if the data meets each of the validation criteria, examining each criterion one at a time.

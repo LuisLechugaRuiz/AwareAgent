@@ -1,7 +1,7 @@
 from typing import Any
 from pydantic import Field
 
-from forge.memory_tmp.goal_status import GoalStatus
+from forge.sdk.memory.utils.goal.goal_status import GoalStatus
 from forge.helpers.parser.loggable_base_model import LoggableBaseModel
 
 

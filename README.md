@@ -1,78 +1,115 @@
-# 🌟 AutoGPT: the heart of the open-source agent ecosystem
+# Aware: AutoGPT Hackathon Submission - Autonomous Operations
 
-[![Discord Follow](https://dcbadge.vercel.app/api/server/autogpt?style=flat)](https://discord.gg/autogpt) [![GitHub Repo stars](https://img.shields.io/github/stars/Significant-Gravitas/AutoGPT?style=social)](https://github.com/Significant-Gravitas/AutoGPT/stargazers) [![Twitter Follow](https://img.shields.io/twitter/follow/auto_gpt?style=social)](https://twitter.com/Auto_GPT) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+**Note:** For detailed insights into the technical implementation, including our ChatParser technology and intelligent token management, please refer to our [Technical Implementation Details](./README-technical.md). These essential elements are integral to leveraging large language models and managing resources effectively.
 
-**AutoGPT** is your go-to toolkit for supercharging agents. With its modular and extensible framework, you're empowered to focus on:
+At the heart of our submission for the AutoGPT Hackathon is Aware, an autonomous agent powered by advanced language models and designed to independently navigate tasks with minimal human intervention. Central to its functionality is the ability to manage and adapt its objectives, an innovative step forward in autonomous technology.
 
-- 🏗️ **Building** - Lay the foundation for something amazing.
-- 🧪 **Testing** - Fine-tune your agent to perfection.
-- 👀 **Viewing** - See your progress come to life.
+## Autonomous Goals Management
 
-Be part of the revolution! **AutoGPT** stays at the forefront of AI innovation, featuring the codebase for the reigning champion in the Open-Source ecosystem.
+The cornerstone of Aware is its capacity for autonomous goal management, a testament to the agent's advanced design. This system enables the agent to create, pursue, and update its objectives based on real-time feedback from its environment and actions.
 
----
+### Goal-Centric Architecture
 
-<p align="center">
-  <a href="https://lablab.ai/event/autogpt-arena-hacks">
-    <img src="https://lablab.ai/_next/image?url=https%3A%2F%2Fstorage.googleapis.com%2Flablab-static-eu%2Fimages%2Fevents%2Fcll6p5cxj0000356zslac05gg%2Fcll6p5cxj0000356zslac05gg_imageLink_562z1jzj.jpg&w=1080&q=75" alt="AutoGPT Arena Hacks Hackathon" />
-  </a>
-</p>
-<p align="center">
-  <strong>We're hosting a Hackathon!</strong>
-  <br>
-  Click the banner above for details and registration!
-</p>
+Embedded within the agent is a structured representation of a 'Goal,' exemplified in its programming as follows:
 
----
+```python
+class Goal(LoggableBaseModel):
+    description: str = Field("The description of the goal.")
+    ability: str = Field(
+        "The name of the ability (only name, without arguments) that should be used to achieve the goal should be one of the available capabilities, is very important that you verify that the goal can be achieved using this ability."
+    )
+    validation_condition: str = Field(
+        "Explicit criteria acting as the benchmark for goal completion, essential for assessing the outcome's alignment with desired objectives. It serves as a conclusive checkpoint for the current goal and a foundational prerequisite for subsequent objectives."
+    )
+    status: str = Field(
+        "Should be one of the following: NOT_STARTED, IN_PROGRESS, SUCCEEDED, FAILED."
+    )
+```
 
-## 🥇 Current Best Agent: AutoGPT
+This architecture is fundamental for the agent's autonomous decision-making process, enabling it to:
 
-Among our currently benchmarked agents, AutoGPT scores the best. This will change after the hackathon - the top-performing generalist agent will earn the esteemed position as the primary AutoGPT 🎊
+- Assess outcomes against its set validation conditions.
+- Dynamically adjust its strategies based on previous experiences and outcomes.
+- Continuously learn and refine its approach towards goal attainment.
 
-📈 To enter, submit your benchmark run through the UI.
+## Task Execution Framework
 
-## 🌟 Quickstart
+Aware operates through a systematic two-stage process, designed for efficient navigation through its task list and optimal use of its abilities.
 
-- **To build your own agent** and to be eligible for the hackathon, follow the quickstart guide [here](https://github.com/Significant-Gravitas/AutoGPT/blob/master/autogpts/forge/tutorials/001_getting_started.md). This will guide you through the process of creating your own agent and using the benchmark and user interface.
+### Planning Stage
 
-- **To activate the best agent** follow the guide [here](https://github.com/Significant-Gravitas/AutoGPT/blob/master/autogpts/autogpt/README.md).
+During this initial phase, the agent actively:
 
-Want to build your own groundbreaking agent using AutoGPT? 🛠️ There are three major components to focus on:
+- Manages its list of objectives, ensuring clarity, relevance, and attainability.
+- Assigns the appropriate 'ability' to each goal, a critical step requiring an understanding of the task demands and the agent's capabilities.
 
-### 🏗️ the Forge
+### Execution Stage
 
-**Forge your future!** The `forge` is your innovation lab. All the boilerplate code is already handled, letting you channel all your creativity into building a revolutionary agent. It's more than a starting point, it's a launchpad for your ideas. All tutorials are located [here](https://medium.com/@aiedge/autogpt-forge-e3de53cc58ec).
+Here, the agent transitions into active task mode, where it:
 
-📘 [Learn More](https://github.com/Significant-Gravitas/AutoGPT/tree/master/autogpts/forge)
+- Commences the execution of its immediate goal, applying the designated ability with precision.
 
-### 🎯 the Benchmark
+By maintaining a clear separation between the planning and execution stages, Aware promotes a focused, organized approach to task management. This structure ensures thorough preparation for each task and allows for real-time adjustments, contributing to the agent's adaptability and success rate.
 
-**Test to impress!** The `benchmark` offers a stringent testing environment. Our framework allows for autonomous, objective performance evaluations, ensuring your agents are primed for real-world action.
+## Abilities
 
-📘 [Learn More](https://github.com/Significant-Gravitas/AutoGPT/blob/master/benchmark)
+In the context of the hackathon, we've equipped Aware with several distinct abilities, each designed for optimal interaction and information processing.
 
-### 🎮 the UI
+## Search
 
-**Take Control!** The `frontend` is your personal command center. It gives you a user-friendly interface to control and monitor your agents, making it easier to bring your ideas to life.
+The "Search" ability signifies a breakthrough in autonomous information retrieval and analysis, showcasing a seamless blend of LLMs, vector search, and web scraping.
 
-📘 [Learn More](https://github.com/Significant-Gravitas/AutoGPT/tree/master/frontend)
+### Architecture and Pipeline
 
----
+1. **Query Formation and Validation Criteria**: The agent autonomously formulates multiple search queries based on the target information needed. Accompanying these queries is a validation criterion, ensuring that the retrieved data aligns precisely with the requirements.
+2. **Google Search Integration**: Leveraging an automated system, the agent performs searches on Google for each formulated query, collecting the URLs of the most relevant results.
+3. **Advanced Web Scraping**: Each link undergoes an extraction process where the web content is scraped using Selenium. The data is then parsed into manageable textual segments, employing an intelligent token counter algorithm for efficiency.
+4. **Vector Database Storage with Weaviate**: The textual segments are indexed into Weaviate, a vector search engine, enabling nuanced, context-aware retrieval of information.
+5. **Custom Prompt for LLMs and Data Validation**: The most pertinent segments are compiled into a single custom prompt. The LLM processes this prompt, extracts the essential data, and cross-verifies it against the validation criteria to ensure accuracy and relevance.
 
-### 🔄 Agent Protocol
+This elaborate pipeline transforms the agent into an efficient researcher, capable of sifting through vast information with precision, replicating a more enhanced, automated version of a manual research process.
 
-🔌 **Standardize to Maximize!** To maintain a uniform standard and ensure seamless compatibility, AutoGPT employs the [agent protocol](https://agentprotocol.ai/) from the AI Engineer Foundation. This standardizes the communication pathways from your agent to the frontend and benchmark.
+## Data
 
-### 🤔 Questions? Problems? Suggestions?
+Under the "Data" ability, we introduce an innovative approach, delegating intricate data manipulation tasks to a specialized agent known as "pandasai." This entity utilizes LLM's prowess to perform data operations typically executed with Pandas in Python.
 
-#### Get help - [Discord 💬](https://discord.gg/autogpt)
+### Key Functionalities
 
-[![Join us on Discord](https://invidget.switchblade.xyz/autogpt)](https://discord.gg/autogpt)
+- **process_csv_and_save**: This function empowers the agent to carry out complex computations or transformations on a CSV file's data. It comprehends the task, applies the necessary Pandas operations, and stores the result in a new CSV file, all autonomously.
+- **get_insights_from_csv**: Here, the agent probes the CSV data to answer specific questions, drawing insights directly from the dataset. It's capable of understanding diverse queries and responding in natural language, facilitating effortless interpretation of the data.
 
-To report a bug or request a feature, create a [GitHub Issue](https://github.com/Significant-Gravitas/AutoGPT/issues/new/choose). Please ensure someone else hasn’t created an issue for the same topic.
+We've upgraded "pandasai" to intelligently display entire CSV files when needed, enhancing its analysis accuracy for complex tasks.
 
-<p align="center">
-  <a href="https://star-history.com/#Significant-Gravitas/AutoGPT&Date">
-    <img src="https://api.star-history.com/svg?repos=Significant-Gravitas/AutoGPT&type=Date" alt="Star History Chart">
-  </a>
-</p>
+## Coding
+
+Aware's programming skills are rooted in two key functions, enabling the system to create and refine code seamlessly.
+
+### Core Functions
+
+- **create_code**: Initiates and continuously refines code through a systematic improvement process.
+- **modify_code**: Adjusts existing code by identifying and enhancing specific segments based on set parameters.
+
+These methods rely on detailed code requirements and strict validation criteria to ensure precision and effectiveness.
+
+### The Improvement Loop
+
+Aware employs an "Improvement Loop," a cyclical refinement process:
+
+1. **Test Creation**: Constructs tests from the validation criteria.
+2. **Test Execution**: Runs the tests, analyzing results for discrepancies.
+3. **Error Analysis and Improvement Proposal**: An LLM diagnoses failures, determining whether the issue lies in the code or test, and suggests improvements.
+4. **Implementation of Enhancements**: Applies suggested refinements to the code or test.
+
+This loop repeats until the code passes the tests or reaches the maximum iteration limit.
+
+## Conclusion
+
+Aware stands as our innovative contribution to the AutoGPT Hackathon, showcasing an autonomous agent's leap towards self-directed functionality.
+
+## Highlights
+
+- **Autonomy**: Aware excels in self-managing goals, adapting in real-time based on outcomes and environmental feedback.
+- **Task Management**: It tactically handles tasks, balancing between strategic planning and decisive execution.
+- **Abilities**: From deep digital research to nuanced data handling and agile coding, Aware harnesses diverse functionalities, demonstrating proficiency across various domains.
+
+In essence, Aware encapsulates the future of autonomous systems, bringing theoretical AI autonomy into tangible reality.

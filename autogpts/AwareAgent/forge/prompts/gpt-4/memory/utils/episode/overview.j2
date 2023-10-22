@@ -1,0 +1,17 @@
+Your trask is to create a concise summary describing the action performed and the observation received. 
+This outline serves as a precise record and reference for understanding the sequence of events.
+
+The action was performed while pursuing the task:
+{{ task_description }}
+
+The action executed was: {{ action }}
+
+Observation: {{ observation }}
+
+Token Limit: 
+Ensure the summary does not exceed {{ max_overview_tokens }} tokens, encapsulating only the most critical elements of the action in relation to the task.
+
+Commence your summary:
+[Begin with the action, followed by a succinct depiction of the event, its context, and any immediate implications.]
+
+Note: This summary must be a distilled reflection of the executed action, maintaining clarity and brevity while respecting the stipulated token constraints.

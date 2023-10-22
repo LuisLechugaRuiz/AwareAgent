@@ -9,9 +9,8 @@ from forge.helpers.parser.loggable_base_model import LoggableBaseModel
 from forge.helpers.parser.fix_format_prompt import (
     DEF_FIX_FORMAT_PROMPT,
 )
-
+from forge.utils.logger.console_logger import ForgeLogger
 from forge.sdk import (
-    ForgeLogger,
     PromptEngine,
     chat_completion_request,
 )
@@ -29,12 +28,12 @@ class ChatParser(Generic[T]):
     def create_chat_message(role: str, content: str) -> dict[str, str]:
         return {"role": role, "content": content}
 
-    async def get_response(self, system: str, user: str):
+    async def get_response(self, system: str, user: str) -> str:
         messages = [
             self.create_chat_message("user", user),
             self.create_chat_message("system", system),
         ]
-        response = await chat_completion_request(self.model, messages)
+        response = await chat_completion_request(self.model, messages, force_timeout=110)
         return response["choices"][0]["message"]["content"]
 
     async def get_parsed_response(
@@ -86,8 +85,6 @@ class ChatParser(Generic[T]):
             error_msg = parsed_response.error_message
             LOG.error(
                 f"Failing parsing object: {pydantic_object.__name__}, trying to fix autonomously...")
-            # TODO: REMOVE ME LATER
-            LOG.info("Response from the LLM: " + text + "error:" + error_msg)
         while fix_retries > 0:
             response_fix = await self.try_to_fix_format(text, error_msg, pydantic_object)
             if response_fix.result:

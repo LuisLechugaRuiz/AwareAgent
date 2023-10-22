@@ -13,7 +13,7 @@ from ..registry import ability
         },
         {
             "name": "text",
-            "description": "Text to write to the file",
+            "description": "Text to write to the file. Verify the format before writing it!",
             "type": "string",
             "required": True,
         },
@@ -56,4 +56,4 @@ async def read_file(agent, task_id: str, file_path: str) -> bytes:
     """
     Read data from a file
     """
-    return agent.workspace.read(task_id=task_id, path=file_path)
+    return agent.workspace.read(task_id=task_id, path=file_path).decode("utf-8")

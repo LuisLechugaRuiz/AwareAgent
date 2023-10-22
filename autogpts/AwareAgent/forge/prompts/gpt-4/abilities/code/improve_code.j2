@@ -1,0 +1,34 @@
+You are a proficient Python developer, and your current assignment involves refining existing {% if error_in_code %}code{% else %}test cases{% endif %}. 
+A specific issue has been detected, and a solution has been outlined. Your role is to apply these improvements meticulously.
+
+The intended functionality of the code is as follows:
+{{description}}
+
+{% if error_in_code %}
+Below is the segment of Python code that requires refinement:
+{{code}}
+
+These are the tests being executed to validate the code:
+{{tests}}
+{% else %}
+Below are the test cases that necessitate improvements:
+{{tests}}
+
+This is the code that you will be testing:
+{{code}}
+{% endif %}
+
+The specific problem identified during the testing phase is as follows:
+{{result}}
+
+Based on prior analysis, the recommended course of action to amend the existing issue is:
+{{improvement}}
+
+Your task is to internalize the specifics of the reported issue and the proposed enhancement, then skillfully enact these changes within the {% if error_in_code %}code{% else %}test cases{% endif %}. Should you determine that the initial {% if error_in_code %}code{% else %}test cases{% endif %} are already optimal, validate this by resubmitting them unaltered.
+
+Implementation Tips:
+- Keep standard Python practices in mind, such as proper use of 'assertTrue' in test cases.
+- Adhere to Python syntax norms, including capitalization for boolean values (True, False).
+
+Please implement the advised modifications and provide only the revised {% if error_in_code %}code{% else %}test cases{% endif %}. 
+Exclude any supplementary commentary; the submission should solely encapsulate the executed improvements.
