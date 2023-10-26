@@ -86,7 +86,7 @@ async def _search_on_google(
         return "No queries provided. Please provide at least one query."
 
     model = Config().smart_llm_model
-    memory.reset_web_data()  # Reset web data to avoid saving data from previous runs, it can get the same info again and again... TODO: Fix it.
+    # memory.reset_web_data()  # Reset web data to avoid saving data from previous runs, it can get the same info again and again... TODO: Fix it.
 
     # 1. Get all the top results from google.
     urls = []
@@ -134,9 +134,8 @@ async def _search_on_google(
             model=model,
             chunk_max_tokens=chunk_max_tokens,
         )
-        for chunk in chunks:
-            # 1.3 save chunks into memory.
-            memory.store_web_data(url=url, query=query, content=chunk)
+        # 1.3 save chunks into memory in case url hasn't been scrapped before.
+        memory.store_web_data(url=url, query=query, chunks=chunks)
 
     # 2. Get the most relevant data.
     top_results = memory.search_web_data(

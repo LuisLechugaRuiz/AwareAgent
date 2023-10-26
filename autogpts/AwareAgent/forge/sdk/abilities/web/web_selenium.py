@@ -50,7 +50,7 @@ from forge.utils.logger.console_logger import ForgeLogger
 
 LOG = ForgeLogger(__name__)
 
-PROTECTED_WEBS = ["twitter", "facebook", "instagram", "reddit"]
+PROTECTED_WEBS = ["twitter.com", "facebook.com", "instagram.com", "reddit.com"]
 
 
 def extract_hyperlinks(soup: BeautifulSoup, base_url: str) -> list[Tuple[str, str]]:
@@ -328,7 +328,7 @@ def open_page_in_browser(url: str) -> WebDriver:
     selenium_web_browser = "chrome"
 
     url_lower = url.lower()
-    if any(web in url_lower for web in PROTECTED_WEBS):
+    if is_protected_web(url_lower):
         selenium_headless = False  # Set to non-headless mode for these sites
         LOG.warning(f"Using non-headless mode for protected websites: {url}")
     else:
@@ -470,3 +470,42 @@ async def summarize(text, model, question=None):
         LOG.info("Summarizing text...")
         text = await summarize_text(model, text, question)
     return text
+
+
+def extract_base_domain(url):
+    """
+    Extracts the base domain from the given URL.
+    """
+    try:
+        # Get the network location part (netloc)
+        netloc = urlparse(url).netloc
+
+        # Split the netloc by '.' and consider the last two parts as the base domain
+        # This will handle domains like 'something.co.uk' correctly
+        parts = netloc.split('.')
+        base_domain = '.'.join(parts[-2:])
+
+        return base_domain
+    except Exception as e:
+        # Handle the exception (log it, etc.)
+        print(f"An error occurred while extracting the base domain: {e}")
+        return None
+
+
+def is_protected_web(url):
+    """
+    Checks if the URL's base domain is in the list of protected domains.
+    """
+    try:
+        # Get the network location part (netloc)
+        netloc = urlparse(url).netloc
+
+        # Split the netloc by '.' and consider the last two parts as the base domain
+        # This will handle domains like 'something.co.uk' correctly
+        parts = netloc.split('.')
+        base_domain = '.'.join(parts[-2:])
+
+        return base_domain in PROTECTED_WEBS
+    except Exception as e:
+        LOG.error(f"An error occurred while extracting the base domain: {e}")
+        return False

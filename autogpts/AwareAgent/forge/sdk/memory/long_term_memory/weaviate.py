@@ -5,6 +5,7 @@ from forge.sdk.memory.utils.episode.episode import Episode
 from forge.sdk.memory.utils.embeddings import get_ada_embedding
 from forge.sdk.config.config import Config
 from forge.utils.process_tokens import count_string_tokens
+from forge.utils.logger.file_logger import FileLogger
 
 
 DEF_SCHEMA = {
@@ -80,7 +81,7 @@ DEF_SCHEMA = {
                     "description": "The content of the data",
                 },
             ],
-        }
+        },
     ]
 }
 
@@ -104,19 +105,20 @@ class WeaviateMemory(object):
                 url=f"{Config().local_weaviate_url}:{Config().weaviate_port}"
             )
         # self.client.schema.delete_all()
+        self.logger = FileLogger("WeaviateMemory")
         self._create_schema()
 
     def _create_schema(self):
         # Check if classes in the schema already exist in Weaviate
         for class_definition in DEF_SCHEMA["classes"]:
             class_name = class_definition["class"]
-            print("Creating class: ", class_name)
+            self.logger.info(f"Creating class: {class_name}")
             try:
                 if not self.client.schema.contains(class_definition):
                     # Class doesn't exist, so we attempt to create it
                     self.client.schema.create_class(class_definition)
             except Exception as err:
-                print(f"Unexpected error {err=}, {type(err)=}")
+                self.logger.error(f"Unexpected error {err=}, {type(err)=}")
 
     def _get_overview_filter(self, overview):
         filter_obj = {
@@ -151,7 +153,7 @@ class WeaviateMemory(object):
                 return None
 
         except Exception as err:
-            print(f"Unexpected error {err=}, {type(err)=}")
+            self.logger.error(f"Unexpected error {err=}, {type(err)=}")
             return None
 
     def retrieve_episode(self, episode_uuid):
@@ -168,21 +170,15 @@ class WeaviateMemory(object):
             else:
                 return None
         except Exception as err:
-            print(f"Unexpected error {err=}, {type(err)=}")
+            self.logger.error(f"Unexpected error {err=}, {type(err)=}")
             return None
 
     def get_episode(self, episode_uuid: str) -> Optional[Episode]:
-        stored_episode = self.retrieve_episode(
-            episode_uuid=episode_uuid
-        )
+        stored_episode = self.retrieve_episode(episode_uuid=episode_uuid)
         if stored_episode:
             child_episodes = []
             for child_episode_uuid in stored_episode["child_episodes_uuid"]:
-                child_episodes.append(
-                    self.get_episode(
-                        episode_uuid=child_episode_uuid
-                    )
-                )
+                child_episodes.append(self.get_episode(episode_uuid=child_episode_uuid))
             episode = Episode(
                 overview=stored_episode["overview"], content=stored_episode["content"]
             )
@@ -192,22 +188,27 @@ class WeaviateMemory(object):
             return episode
         return None
 
-    def search_episode(
-        self, query, num_relevant=1, certainty=0.9
-    ) -> Optional[Episode]:
+    def search_episode(self, query, num_relevant=1, certainty=0.9) -> Optional[Episode]:
         vector = get_ada_embedding(query)
         # Get the most similar overview
         most_similar_contents = self._get_relevant(
             vector=({"vector": vector, "certainty": certainty}),
             class_name="Episode",
-            fields=["overview", "goal", "capability", "ability", "arguments", "observation", "child_episodes_uuid", "created_at"],
+            fields=[
+                "overview",
+                "goal",
+                "capability",
+                "ability",
+                "arguments",
+                "observation",
+                "child_episodes_uuid",
+                "created_at",
+            ],
             num_relevant=num_relevant,
         )
         if most_similar_contents:
             stored_episode = most_similar_contents[0]
-            return self.get_episode(
-                episode_uuid=stored_episode["_additional"]["id"]
-            )
+            return self.get_episode(episode_uuid=stored_episode["_additional"]["id"])
         return None
 
     def create_episode(
@@ -247,29 +248,63 @@ class WeaviateMemory(object):
         self,
         url: str,
         query: str,
-        content: str,
+        chunks: List[str],
     ):
-        tokens = count_string_tokens(content)
-        if tokens > 2000:
-            print(f"Bug!, got {tokens} tokens... edge case that I couldn't get on time.")
+        exists_url_query = {
+            "path": ["url"],
+            "operator": "Equal",
+            "valueText": url,
+        }
+        try:
+            # Construct and execute the query
+            query_builder = self.client.query.get("WebData", ["url"]).with_additional(
+                ["id"]
+            )
+            query_builder.with_where(exists_url_query)
+            results = query_builder.do()
+
+            # Check if there is any result
+            if results and "data" in results:
+                webdata_results = (
+                    results.get("data", {}).get("Get", {}).get("WebData", [])
+                )
+                if webdata_results:
+                    self.logger.info(f"Objects with URL '{url}' already exists.")
+                    existing_uuid = webdata_results[0]["_additional"]["id"]
+                    return existing_uuid
+                else:
+                    self.logger.info(
+                        "Creating new objects as none exists with the provided URL."
+                    )
+                    web_data_uuid = None
+                    for content in chunks:
+                        tokens = count_string_tokens(content)
+                        if tokens > 2000:
+                            self.logger.error(
+                                f"Bug!, got {tokens} tokens... edge case that I couldn't get on time."
+                            )
+                        else:
+                            content_vector = get_ada_embedding(content)
+                            web_data_uuid = self.client.data_object.create(
+                                data_object={
+                                    "url": url,
+                                    "query": query,
+                                    "content": content,
+                                },
+                                class_name="WebData",
+                                vector=content_vector,
+                            )
+                    return web_data_uuid
+            else:
+                self.logger.error(
+                    "Unexpected response structure received from Weaviate. No 'data' key found."
+                )
+                return None
+        except Exception as e:
+            self.logger.error(f"An error occurred: {e}")
             return None
 
-        # TODO: If the object doesn't exist, proceed with creating a new one
-        content_vector = get_ada_embedding(content)
-        web_data_uuid = self.client.data_object.create(
-            data_object={
-                "url": url,
-                "query": query,
-                "content": content,
-            },
-            class_name="WebData",
-            vector=content_vector,
-        )
-        return web_data_uuid
-
-    def search_web_data(
-        self, query, num_relevant=1, certainty=0.7
-    ):
+    def search_web_data(self, query, num_relevant=1, certainty=0.7):
         query_vector = get_ada_embedding(query)
         # Get the most similar content
         most_similar_contents = self._get_relevant(
@@ -324,22 +359,22 @@ class WeaviateMemory(object):
     ):
         pass
         # Create a new instance of the cross reference class
-        #if override:
-            #self.client.data_object.reference.update(
-            #    from_uuid=uuid,
-            #    from_property_name=field_name,
-            #    to_uuids=[reference_object_uuid],
-            #    from_class_name=class_name,
-            #    to_class_names=cross_reference_name,
-            #)
+        # if override:
+        # self.client.data_object.reference.update(
+        #    from_uuid=uuid,
+        #    from_property_name=field_name,
+        #    to_uuids=[reference_object_uuid],
+        #    from_class_name=class_name,
+        #    to_class_names=cross_reference_name,
+        # )
         # else:
-            #self.client.data_object.reference.add(
-            #    from_uuid=uuid,
-            #    from_property_name=field_name,
-            #    to_uuid=reference_object_uuid,
-            #    from_class_name=class_name,
-            #    to_class_name=cross_reference_name,
-            # )
+        # self.client.data_object.reference.add(
+        #    from_uuid=uuid,
+        #    from_property_name=field_name,
+        #    to_uuid=reference_object_uuid,
+        #    from_class_name=class_name,
+        #    to_class_name=cross_reference_name,
+        # )
 
     def recursive_search(self, overview, query, certainty=0.9, depth=1):
         """This method uses remember to first search for the parent overview and then do a recursive search"""
