@@ -19,21 +19,6 @@ DEF_SCHEMA = {
                     "description": "The episode which generalizes this episode",
                 },
                 {
-                    "name": "overview",
-                    "dataType": ["text"],
-                    "description": "The overview of the episode",
-                },
-                {
-                    "name": "goal",
-                    "dataType": ["text"],
-                    "description": "Goal of the episode",
-                },
-                {
-                    "name": "capability",
-                    "dataType": ["text"],
-                    "description": "The capability that was used in the episode",
-                },
-                {
                     "name": "ability",
                     "dataType": ["text"],
                     "description": "The ability that was performed in the episode",
@@ -212,22 +197,16 @@ class WeaviateMemory(object):
 
     def create_episode(
         self,
-        overview: str,
-        goal: str,
-        capability: str,
         ability: str,
         arguments: str,
         observation: str,
         created_at,
         child_episodes_uuid,
     ):
-        value = overview  # Using as vector only the overview for now.
+        value = observation  # Using as vector only the overview for now.
         vector = get_ada_embedding(value)
         episode_uuid = self.client.data_object.create(
             data_object={
-                "overview": overview,
-                "goal": goal,
-                "capability": capability,
                 "ability": ability,
                 "arguments": arguments,
                 "observation": observation,
@@ -282,9 +261,6 @@ class WeaviateMemory(object):
 
     def store_episode(
         self,
-        overview: str,
-        goal: str,
-        capability: str,
         ability: str,
         arguments: str,
         observation: str,
@@ -292,9 +268,6 @@ class WeaviateMemory(object):
         child_episodes_uuid: List[str] = [],
     ):
         episode_uuid = self.create_episode(
-            overview=overview,
-            goal=goal,
-            capability=capability,
             ability=ability,
             arguments=arguments,
             observation=observation,

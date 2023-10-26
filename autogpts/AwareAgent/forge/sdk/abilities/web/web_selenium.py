@@ -190,7 +190,7 @@ LINKS_TO_RETURN = 20
 
 @ability(
     name="read_webpage",
-    description="Read a webpage, and extract specific information from it if a question is specified.",
+    description="Reads a webpage and extracts information, optionally based on a question.",
     parameters=[
         {
             "name": "url",

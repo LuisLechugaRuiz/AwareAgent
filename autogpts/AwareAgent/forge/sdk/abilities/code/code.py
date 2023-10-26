@@ -25,7 +25,7 @@ class Debug(LoggableBaseModel):
 @ability(
     name="modify_code",
     description=(
-        "Refines existing code by replacing a specified segment with improved logic, ensuring precision enhancements while maintaining the overall code structure."
+        "Improves a code segment while preserving the overall structure."
     ),
     parameters=[
         {
@@ -75,7 +75,7 @@ async def modify_code(
     # Reading the existing code
     try:
         logger.info(f"Loading code from {filename}")
-        existing_code_bytes = await agent.workspace.read(task_id=task_id, path=filename)
+        existing_code_bytes = agent.workspace.read(task_id=task_id, path=filename)
         existing_code = existing_code_bytes.decode("utf-8")
     except Exception as e:
         return f"Error reading the code file: {str(e)}"
@@ -112,7 +112,7 @@ async def modify_code(
 @ability(
     name="create_code",
     description=(
-        "Entrusted with a code snippet, this ability takes an active role in its refinement. It starts with the code provided, then probes it through a series of evaluations, enhancements, and rigorous testing, ensuring the code not only works but is efficient and meets established standards. This is not about writing new code from scratch; instead, it's about taking something existing and making it better, ensuring it's worthy of inclusion in the system's repository."
+        "Translates natural language specifications into efficient and standard-compliant code. Set is_last to True when calling this ability."
     ),
     parameters=[
         {
@@ -122,14 +122,8 @@ async def modify_code(
             "required": True,
         },
         {
-            "name": "description",
-            "description": "A narrative that outlines the code's purpose and expected functionality, serving as the guidepost for its refinement journey.",
-            "type": "string",
-            "required": True,
-        },
-        {
-            "name": "code",
-            "description": "The raw material of the process: the initial code snippet that this ability will scrutinize and enhance.",
+            "name": "specifications",
+            "description": "A detailed outline specifying the code's intended functionality and requirements, guiding its development and refinement.",
             "type": "string",
             "required": True,
         },
@@ -153,28 +147,36 @@ async def create_code(
     agent,
     task_id: str,
     filename: str,
-    description: str,
-    code: str,
+    specifications: str,
     validation: str,
     overwrite: bool = True,
 ) -> str:
     logger = FileLogger("code")
 
     # Save initial code
+    code = await get_code(model=agent.get_model(), specifications=specifications, validation=validation)
     code = clean_code(code)
     logger.info(f"Code: {code}")
     write_to_file(agent, task_id, filename, code, overwrite)
 
-    return await test_and_improve_code(
-        agent, task_id, filename, description, code, validation, overwrite
+    if Config().self_improvement:
+        return await test_and_improve_code(
+            agent, task_id, filename, specifications, code, validation, overwrite
+        )
+    await agent.db.create_artifact(
+        task_id=task_id,
+        file_name=filename,
+        relative_path="",
+        agent_created=True,
     )
+    return f"The code has been saved at: {filename}."
 
 
 async def test_and_improve_code(
     agent,
     task_id: str,
     filename: str,
-    description: str,
+    specifications: str,
     code: str,
     validation: str,
     overwrite: bool = True,
@@ -208,7 +210,7 @@ async def test_and_improve_code(
             logger.info("The code didn't pass the tests. debugging...")
             debug_response = await debug_code(
                 model=model,
-                description=description,
+                description=specifications,
                 code=code,
                 tests=tests,
                 result=result,
@@ -223,7 +225,7 @@ async def test_and_improve_code(
                 logger.info("Trying to improve the tests...")
             response = await improve_code(
                 model=model,
-                description=description,
+                description=specifications,
                 code=code,
                 tests=tests,
                 result=result,
@@ -372,11 +374,10 @@ async def get_tests(model: str, code: str, validation: str, filename: str) -> st
     return await get_response(model=model, system=system)
 
 
-async def get_code(model: str, task: str, functions: str, validation: str) -> str:
+async def get_code(model: str, specifications: str, validation: str) -> str:
     prompt_engine = PromptEngine(model)
     system_kwargs = {
-        "task": task,
-        "functions": functions,
+        "specifications": specifications,
         "validation": validation,
     }
     system = prompt_engine.load_prompt("abilities/code/code", **system_kwargs)
@@ -431,8 +432,7 @@ async def execute_python_file(
     file_name: str,
     args: List[str],
 ) -> str:
-    """Create and execute a Python file in a Docker container and return the STDOUT of the
-    executed code. If there is any data that needs to be captured use a print statement
+    """Execute a Python file in Docker and return its STDOUT. Capture data with print.
 
     Args:
         file_name (str): The name of the file to execute

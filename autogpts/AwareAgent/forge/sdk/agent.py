@@ -202,7 +202,6 @@ class Agent:
             else:
                 file_path = artifact.relative_path
             retrieved_artifact = self.workspace.read(task_id=task_id, path=file_path)
-            LOG.debug("RETRIEVING ARTIFACT: " + str(artifact.file_name))
         except NotFoundError as e:
             raise
         except FileNotFoundError as e:

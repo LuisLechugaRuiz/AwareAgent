@@ -12,9 +12,6 @@ class Overview(LoggableBaseModel):
 
 
 class Episode(LoggableBaseModel):
-    overview: str = Field(
-        description="A brief, high-level summary of the episode's content. It provides a quick snapshot of what the episode encompasses without diving into details."
-    )
     _creation_time: str = PrivateAttr(default="")
     _goal: str = PrivateAttr(default="")
     _capability: str = PrivateAttr(default="")
@@ -32,9 +29,7 @@ class Episode(LoggableBaseModel):
     def add_child_episodes(self, episodes: List["Episode"]):
         self._child_episodes.extend(episodes)
 
-    def add_execution(self, goal: str, capability: str, ability: str, arguments: str, observation: str):
-        self._goal = goal
-        self._capability = capability
+    def add_execution(self, ability: str, arguments: str, observation: str):
         self._ability = ability
         self._arguments = arguments
         self._observation = observation
@@ -42,11 +37,11 @@ class Episode(LoggableBaseModel):
     def get_description(self) -> str:
         """Get a human-readable description of the current goal"""
 
-        return f"Goal: {self._goal}\nAbility: {self._ability}\nArguments: {self._arguments}\nResult: {self._observation}"
+        return f"Ability: {self._ability}\nArguments: {self._arguments}\nResult: {self._observation}"
 
     @classmethod
-    def get_format(cls, goal, ability, arguments, observation):
-        return f"Goal: {goal}\nAbility: {ability}\nArguments: {arguments}\nResult: {observation}"
+    def get_format(cls, ability, arguments, observation):
+        return f"Ability: {ability}\nArguments: {arguments}\nResult: {observation}"
 
     def link_to_uuid(self, uuid):
         self._uuid = uuid
@@ -69,16 +64,8 @@ class Episode(LoggableBaseModel):
     #        description += f"\nChild Episodes:\n{child_episodes_overview}"
     #    return description
 
-    def get_overview(self, show_uuid=True):
-        if show_uuid:
-            return f"- {self._creation_time}: {self.overview} (UUID: {self._uuid})"
-        return self.overview
-
     def to_dict(self):
         return {
-            "overview": self.overview,
-            "goal": self._goal,
-            "capability": self._capability,
             "ability": self._ability,
             "arguments": self._arguments,
             "observation": self._observation,
@@ -90,12 +77,8 @@ class Episode(LoggableBaseModel):
 
     @classmethod
     def from_dict(cls, data):
-        episode = Episode(
-            overview=data["overview"],
-        )
+        episode = Episode()
         episode._creation_time = data.get("creation_time", "")
-        episode._goal = data.get("goal", "")
-        episode._capability = data.get("capability", "")
         episode._ability = data.get("ability", "")
         episode._arguments = data.get("arguments", "")
         episode._observation = data.get("observation", "")

@@ -1,16 +1,16 @@
-You are currently engaged in a meticulous process of analyzing and distilling information from the following sources:
+Analyze the following sources, using queries as hints to pinpoint specific information. 
+Ensure extracted data meets the 'Validation Criteria'.
+
 {% for source in sources %}
 -   Url: "{{ source.url }}"
     Query: "{{ source.query }}"
     Content: "{{ source.content }}"
 {% endfor %}
 
-Navigate through this sea of information to locate data that precisely correlates with the predefined 'Target Info' and satisfies the exacting standards set by the 'Validation Criteria'.
-Target Info: "{{ target_info }}"
 Validation Criteria: "{{ validation }}"
 
-In your pursuit of precision, it's crucial to understand that adapting or modifying the data to fit the criteria is not permissible. The goal is to find a piece of information that inherently meets the validation criteria without alteration or reinterpretation.
+Seek information that naturally aligns with the validation criteria without altering or reinterpreting data. 
+Your response should prioritize precision and match the criteria's exactness.
 
-In summary, your refined response should serve as a paragon of precision, reflecting the most accurate elements of the provided data. It's essential to understand that you're seeking details that echo the validation criteria's exactness, not just an overarching narrative.
-
-Begin your response by methodically comparing all the different sources, step by step, and filtering out the most relevant data. Following this, meticulously verify if the data meets each of the validation criteria, examining each criterion one at a time. If 'criteria_met' is False, conclude your submission with a detailed synthesis of what was learned from this iteration, setting the stage for a more targeted and informed follow-up.
+Compare the sources, extracting relevant data. Verify if the data aligns with each validation criteria. 
+If 'criteria_met' is False, provide a synthesis of the findings to guide future attempts.

@@ -88,8 +88,6 @@ class EpisodeManager(object):
 
     async def create_episodes(
         self,
-        goal: str,
-        capability: str,
         ability: str,
         arguments: str,
         observation: str,
@@ -98,7 +96,6 @@ class EpisodeManager(object):
 
         max_overview_tokens = round(self.episodes_max_tokens * 0.2)
         overview_raw_prompt = self.get_overview_prompt(
-            task_description=goal,
             action=ability,
             observation="",
             max_overview_tokens=self.episodes_max_tokens,
@@ -108,7 +105,7 @@ class EpisodeManager(object):
             Config().get_max_model_tokens(self.model) - max_overview_tokens - 100
         )
         self.logger.info(f"chunk_max_tokens: {chunk_max_tokens}", should_print=False)
-        full_text = Episode.get_format(goal, ability, arguments, observation)
+        full_text = Episode.get_format(ability, arguments, observation)
         prefix = """This is the {n_episode} chunk of a sequence of {total_episodes} chunks while performing action: {action}\n"""
         chunks = self.preprocess_text(
             raw_prompt=overview_raw_prompt,
@@ -121,8 +118,6 @@ class EpisodeManager(object):
             return
         if len(chunks) == 1:
             episode = await self.create_episode(
-                goal=goal,
-                capability=capability,
                 ability=ability,
                 arguments=arguments,
                 observation=observation,
@@ -137,8 +132,6 @@ class EpisodeManager(object):
             # Create all the episodes and save them on long term memory.
             episodes.append(
                 await self.create_episode(
-                    goal=goal,
-                    capability=capability,
                     ability=ability,
                     arguments=arguments,
                     observation=chunk,
@@ -149,36 +142,13 @@ class EpisodeManager(object):
 
     async def create_episode(
         self,
-        goal,
-        capability,
         ability,
         arguments,
         observation,
     ) -> Optional[Episode]:
-        max_overview_tokens = round(self.episodes_max_tokens * 0.2)
-        overview_prompt = self.get_overview_prompt(
-            task_description=goal,
-            action=ability,
-            observation=observation,
-            max_overview_tokens=max_overview_tokens,
-        )
-        self.logger.info(
-            f"Creating episode from summarized observation using prompt: {overview_prompt}",
-            should_print=False,
-        )
-        # overview = await ChatParser(model=self.model).get_response(
-        #    system=overview_prompt,
-        #    user="Please include only the information specifically requested, without any further additions."
-        # )
-        overview = "No implemented yet!"  # TODO: Implement after hackathon to store/retrive episodes from long term memory.
-        episode = Episode(
-            content=observation,
-            overview=overview,
-        )
+        episode = Episode()
 
         episode.add_execution(
-            goal=goal,
-            capability=capability,
             ability=ability,
             arguments=arguments,
             observation=observation,
@@ -245,14 +215,10 @@ class EpisodeManager(object):
 
                 parsed_response = None  # DISABLE FOR NOW AS LONG TERM MEMORY IS NOT USED FOR HACKATHON.
                 if parsed_response:
-                    meta_episode = Episode(
-                        overview=parsed_response[0].overview,
-                    )
+                    meta_episode = Episode()
                     meta_episode._observation = parsed_response[0].content
                 else:
-                    meta_episode = Episode(
-                        overview=f"New summary integrating multiples episodes on {episode.overview}, failed to parse.",
-                    )  # Save raw data.
+                    meta_episode = Episode()  # Save raw data.
                     meta_episode._observation = current_chunk
                 # Update raw_prompt_tokens to do not exceed the chunk_max_tokens
                 raw_prompt = self.get_summary_prompt(
@@ -309,7 +275,7 @@ class EpisodeManager(object):
     def get_summary_str(self) -> Optional[str]:
         """Get the current summary"""
 
-        return self.summary.overview if self.summary else None
+        return self.summary if self.summary else None
 
     def get_summary_prompt(
         self,
@@ -332,13 +298,11 @@ class EpisodeManager(object):
 
     def get_overview_prompt(
         self,
-        task_description: str,
         action: str,
         observation: str,
         max_overview_tokens: int,
     ):
         overview_prompt_kwargs = {
-            "task_description": task_description,
             "action": action,
             "observation": observation,
             "max_overview_tokens": max_overview_tokens,
@@ -385,9 +349,6 @@ class EpisodeManager(object):
             f"Adding episode: {episode.get_description()}", should_print=False
         )
         episode_uuid = self.long_term_memory.store_episode(
-            overview=episode.overview,
-            goal=episode._goal,
-            capability=episode._capability,
             ability=episode._ability,
             arguments=episode._arguments,
             observation=episode._observation,

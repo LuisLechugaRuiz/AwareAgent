@@ -1,4 +1,4 @@
-Your role involves assessing the need to present full dataframes (dfs) to an AI model tasked with generating pandas-based code. Evaluate if the dfs carry semantic nuances essential for the model to grasp the task, especially for operations typical of NLP tasks, such as categorization or semantic analysis. If the data is solely structural with no substantial semantic element, designate 'should_show_full_dfs' as false. However, if the task explicitly demands a thorough analysis of the content for accurate processing, mark 'show_full_dfs' as true.
+Your role is to decide if the AI model, generating pandas-based code, needs the full dataframes (dfs). If the task requires understanding content like natural language processing does, mark 'show_full_dfs' as true. If it's just about structure without deep content interpretation, mark it as false.
 
 Request:
 "{{request}}"

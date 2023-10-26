@@ -10,13 +10,13 @@ from forge.sdk import (
 from forge.agent.config import AgentConfig, Stage, Status
 from forge.sdk.config.storage import get_permanent_storage_path
 from forge.sdk.memory.short_term_memory.episodic_memory import EpisodicMemory
-from forge.sdk.memory.utils.goal import GoalStatus
 from forge.sdk.memory.long_term_memory.weaviate import WeaviateMemory
-from forge.sdk.behavior import Execution, Plan
+from forge.sdk.behavior import Plan
 from forge.sdk.schema import Status as StepStatus
 from forge.utils.logger.file_logger import FileLogger
 from forge.utils.directories import list_directories
 
+from datetime import datetime
 from typing import Optional
 import os
 
@@ -35,6 +35,7 @@ class ForgeAgent(Agent):
         self.memory = EpisodicMemory(
             folder=get_permanent_storage_path()
         )
+        self.task_start_time = datetime.now()
 
     async def create_task(self, task_request: TaskRequestBody) -> Task:
         """
@@ -50,123 +51,79 @@ class ForgeAgent(Agent):
         self.logger.info(
             f"📦 Task created: {task.task_id} input: {task.input[:40]}{'...' if len(task.input) > 40 else ''}"
         )
+        self.task_start_time = datetime.now()
         await self.reset()
         return task
 
     async def execute_step(self, task_id: str, step_request: StepRequestBody) -> Step:
         task = await self.db.get_task(task_id)
         summary = self.memory.get_episodic_memory()
-
-        await self.plan_stage(task, summary)
-        # await self.attention_stage(task)  # TODO: Implement me.
-
-        step = await self.execute_stage(task, step_request, summary)
+        step = await self.run(task, step_request, summary)
         return step
 
-    async def plan_stage(self, task: Task, summary: Optional[str] = None):
+    async def run(self, task: Task, step_request: StepRequestBody, summary: Optional[str] = None):
         self.config.set_stage(Stage.PLANNING)
-
-        goals = self.memory.get_goals()
-        goals_str = None
-        if len(goals) > 0:
-            goals_str = "\n".join(goal.get_description() for goal in goals)
-
-        # TODO:
-        # - Add relevant information from the long term memory.
-        thought, plan = await Plan.get_plan(
-            task=task.input,
-            previous_thought=self.memory.get_thought(),
-            abilities=self.abilities.list_abilities_for_prompt(),
-            goals=goals_str,
-            summary=summary,
-            directories=self.get_directories(task_id=task.task_id),
-            model=self.config.model,
-        )
-        self.memory.set_goals(plan.goals)
-        self.memory.update_thought(thought)
-        if self.get_goal() is None:
-            self.logger.info("No goals found. Exiting.")
-            return False
-        return True
-
-    async def execute_stage(
-        self, task: Task, step_request: StepRequestBody, summary: str = None
-    ):
-        self.config.set_stage(Stage.EXECUTION)
         task_id = task.task_id
         step = await self.db.create_step(
             task_id=task_id, input=step_request, is_last=False
         )
-        try:
-            goal = self.get_goal()
-            if goal is None:
-                self.logger.info("No goals found. Exiting.")
-                step.is_last = True
-                return step
-            if self.memory.max_iterations_reached():
-                self.logger.info("Exiting due to too many iterations.")
-                step.is_last = True
-                return step
-            if goal.get_status() == GoalStatus.NOT_STARTED:
-                goal.update_status(status=GoalStatus.IN_PROGRESS)
-        except Exception as e:
-            return await self.save_episode(
-                task_id,
-                step.step_id,
-                goal.description,
-                goal.ability,
-                observation=f"Wrong goal. Error: {e}",
-            )
-
-        ability = self.verify_ability(goal.ability)
-        if ability is None:
-            return await self.save_episode(
-                task_id, step.step_id, goal.description, goal.ability
-            )
+        step_id = step.step_id
+        # Verify if max iterations
+        if self.memory.max_iterations_reached():
+            self.logger.info("Exiting due to too many iterations.")
+            step.is_last = True
+            return step
 
         # TODO:
         # - Add relevant information from the long term memory.
-        thought, execution = await Execution.get_execution(
+        execution = await Plan.get_plan(
             task=task.input,
-            goal=goal.get_description(),
-            previous_thought=self.memory.get_thought().get_description(),
-            ability=ability,
+            previous_thought=self.memory.get_thought(),
+            abilities=self.abilities.list_abilities_for_prompt(),
             summary=summary,
-            directories=self.get_directories(task_id=task_id),
+            directories=self.get_directories(task_id=task.task_id),
             model=self.config.model,
         )
-        self.memory.update_thought(thought)
+        self.memory.update_thought(execution.reasoning)
 
-        new_ability = self.verify_ability(execution.action)
-        if new_ability is None:
+        # Verify that ability is valid
+        ability = self.verify_ability(execution.ability)
+        if ability is None:
             return await self.save_episode(
-                task_id, step.step_id, goal.description, execution.action
+                task_id, step_id, execution.ability
             )
 
         # Execute the ability
         try:
             output = await self.abilities.run_ability(
-                task_id, execution.action, **execution.arguments
+                task_id, execution.ability, **execution.arguments
             )
         except Exception as e:
-            error_output = f"Error executing ability {execution.action} due to: {e}"
+            error_output = f"Error executing ability {execution.ability} due to: {e}"
             return await self.save_episode(
                 task_id,
-                step.step_id,
-                goal.description,
-                execution.action,
+                step_id,
+                execution.ability,
                 arguments=str(execution.arguments),
                 observation=error_output,
             )
-
-        return await self.save_episode(
+        step = await self.save_episode(
             task_id,
-            step.step_id,
-            goal.description,
-            execution.action,
+            step_id,
+            execution.ability,
             str(execution.arguments),
             str(output),
         )
+        if execution.ability == "finish":
+            self.logger.info("Finishing finish ability")
+            step.is_last = True
+        if execution.is_last:
+            self.logger.info("Finishing due to last execution.")
+            step.is_last = True
+        if step.is_last:
+            task_time_sec = (datetime.now() - self.task_start_time).total_seconds()
+            self.logger.info(f"Task took {task_time_sec} seconds to complete.")
+        return step
 
     def get_short_term_memory(self) -> EpisodicMemory:
         return self.memory
@@ -205,7 +162,6 @@ class ForgeAgent(Agent):
         self,
         task_id: str,
         step_id: str,
-        goal_description: str,
         ability: str,
         arguments: str = "",
         observation: Optional[str] = None,
@@ -213,10 +169,7 @@ class ForgeAgent(Agent):
         if observation is None:
             observation = f"Ability {ability} not found, verify that it contains only the name of the ability. In case you want to finish the task just set all goal statuses as SUCCEEDED."
 
-        capability = "all_abilities"  # TODO: Divide abilities by classes when the hackathon is over and we want to create general purpose
         await self.memory.add_episode(
-            goal=goal_description,
-            capability=capability,
             ability=ability,
             arguments=arguments,
             observation=observation,

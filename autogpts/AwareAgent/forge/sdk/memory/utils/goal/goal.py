@@ -7,9 +7,6 @@ from forge.helpers.parser.loggable_base_model import LoggableBaseModel
 
 class Goal(LoggableBaseModel):
     description: str = Field("The description of the goal.")
-    ability: str = Field(
-        "The name of the ability (only name, without arguments) that should be used to achieve the goal should be one of the available capabilities, is very important that you verify that the goal can be achieved using this ability."
-    )
     validation_condition: str = Field(
         "Explicit criteria acting as the benchmark for goal completion, essential for assessing the outcome's alignment with desired objectives. It serves as a conclusive checkpoint for the current goal and a foundational prerequisite for subsequent objectives"
     )
@@ -20,7 +17,7 @@ class Goal(LoggableBaseModel):
     def get_description(self) -> str:
         """Get a human-readable description of the current goal"""
 
-        return f"Description: {self.description}\nability: {self.ability}\nValidation condition: {self.validation_condition}\nStatus: {self.status}"
+        return f"Description: {self.description}\nValidation condition: {self.validation_condition}\nStatus: {self.status}"
 
     def get_status(self) -> GoalStatus:
         """Get the status of the goal"""
@@ -37,7 +34,6 @@ class Goal(LoggableBaseModel):
 
         return {
             "description": self.description,
-            "ability": self.ability,
             "validation_condition": self.validation_condition,
             "status": self.status,
         }
@@ -51,7 +47,6 @@ class Goal(LoggableBaseModel):
     def from_dict(cls, data):
         return cls(
             description=data["description"],
-            ability=data["ability"],
             validation_condition=data["validation_condition"],
             status=data["status"],
         )

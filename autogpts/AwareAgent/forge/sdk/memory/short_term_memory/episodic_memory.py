@@ -8,7 +8,6 @@ from forge.sdk.memory.utils.goal.goal_memory import GoalMemory
 from forge.sdk.memory.utils.goal.goal import Goal
 from forge.sdk.memory.utils.episode.episode import Episode
 from forge.sdk.memory.utils.episode.episode_manager import EpisodeManager
-from forge.sdk.memory.utils.thought.thought import Thought
 from forge.sdk.memory.utils.task.task import Task
 from forge.sdk.memory.utils.task.task_memory import TaskMemory
 from forge.utils.logger.file_logger import FileLogger
@@ -53,12 +52,12 @@ class EpisodicMemory:
     #    return self.events
 
     async def add_episode(
-        self, goal: str, capability: str, ability: str, arguments: str, observation: str
+        self, ability: str, arguments: str, observation: str
     ) -> None:
         """Add episode to current episode"""
 
         await self.episode_manager.create_episodes(
-            goal, capability, ability, arguments, observation
+            ability, arguments, observation
         )
         self.save()
 
@@ -68,7 +67,7 @@ class EpisodicMemory:
         self.task_memory.add_task(task=task)
         self.save()
 
-    def get_thought(self) -> Thought:
+    def get_thought(self) -> str:
         """Get thought"""
 
         return self.thought
@@ -135,7 +134,7 @@ class EpisodicMemory:
         self.relevant_information = relevant_information
         self.save()
 
-    def update_thought(self, thought: Thought) -> None:
+    def update_thought(self, thought: str) -> None:
         """Update last thought"""
 
         self.thought = thought
@@ -143,10 +142,7 @@ class EpisodicMemory:
 
     def load(self, data):
         """Load the data from a dict"""
-        if data["thought"]:
-            self.thought = Thought.from_dict(data=data["thought"])
-        else:
-            self.thought = None
+        self.thought = data.get("thought", None)
         # self.events = [Event.from_dict(data=event) for event in data["events"]]
         self.episode_manager = EpisodeManager.from_dict(
             data=data["episode_manager"]
@@ -169,7 +165,7 @@ class EpisodicMemory:
 
     def to_dict(self):
         return {
-            "thought": self.thought.to_dict() if self.thought else None,
+            "thought": self.thought,
             # "events": [event.to_dict() for event in self.events],
             "similar_episodes": {
                 query: episode.to_dict() for query, episode in self.similar_episodes.items()

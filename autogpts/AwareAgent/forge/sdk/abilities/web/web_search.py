@@ -42,18 +42,12 @@ class Answer(LoggableBaseModel):
 
 @ability(
     name="search_on_google",
-    description="Fetches information from top-ranked Google search results using several queries and from specific urls. The valid",
+    description="Retrieves relevant data from top Google search results.",
     parameters=[
         {
             "name": "queries",
             "description": "The queries used to search on google. Be creative and use different queries to get the best results. This field is mandatory!",
             "type": "List[str]",
-            "required": True,
-        },
-        {
-            "name": "target_info",
-            "description": "The information that we want to extract from the web.",
-            "type": "string",
             "required": True,
         },
         {
@@ -69,16 +63,14 @@ async def search_on_google(
     agent: ForgeAgent,
     task_id: str,
     queries: List[str],
-    target_info: str,
     validation: str,
 ) -> str:
     memory = agent.get_long_term_memory()
-    return await _search_on_google(memory, target_info, queries, validation)
+    return await _search_on_google(memory, queries, validation)
 
 
 async def _search_on_google(
     memory: WeaviateMemory,
-    target_info: str,
     queries: List[str],
     validation: str,
 ) -> str:
@@ -115,7 +107,7 @@ async def _search_on_google(
 
     # Get worst case scenario for the prompt.
     chunk_max_tokens = get_chunk_max_tokens(
-        model, urls, queries, target_info, validation
+        model, urls, queries, validation
     )
     LOG.info(f"Chunk max tokens: {chunk_max_tokens}")
     for url in urls:
@@ -138,9 +130,9 @@ async def _search_on_google(
             # 1.3 save chunks into memory.
             memory.store_web_data(url=url, query=query, content=chunk)
 
-    # 2. Get the most relevant data.
+    # 2. Get the most relevant data. TODO -> decide which query to search
     top_results = memory.search_web_data(
-        query=target_info, num_relevant=Config().web_search_top_results
+        query=queries[0], num_relevant=Config().web_search_top_results
     )
     if not top_results:
         return "No results found..."
@@ -148,7 +140,6 @@ async def _search_on_google(
     # 3. Get answer and validate it.
     validation_args = {
         "sources": top_results,
-        "target_info": target_info,
         "validation": validation,
     }
     validate_response = await get_response(
@@ -176,7 +167,7 @@ def get_longest_source(urls, queries):
     return max_source_dict
 
 
-def get_chunk_max_tokens(model, urls, queries, target_info, validation):
+def get_chunk_max_tokens(model, urls, queries, validation):
     # Split text into chunks in a way that ensures that later we can use web_search_top_results chunks on a single prompt.
     # We should be able to use validate prompt and get an answer of max tokens: web_answer_reserved_tokens
     max_tokens = (
@@ -190,7 +181,6 @@ def get_chunk_max_tokens(model, urls, queries, target_info, validation):
     sources = [max_source for _ in range(Config().web_search_top_results)]
     validation_args = {
         "sources": sources,
-        "target_info": target_info,
         "validation": validation,
     }
     # Get worst case scenario for the prompt.
@@ -222,6 +212,7 @@ async def get_response(model, prompt, system_kwargs, container):
     system = prompt_engine.load_prompt(prompt, **system_kwargs)
     system_tokens = count_string_tokens(system, model)
     LOG.debug(f"System tokens: {system_tokens}")
+    LOG.debug(f"System prompt: {system}")
 
     chat_parser = ChatParser(model)
     response = await chat_parser.get_parsed_response(
@@ -284,7 +275,7 @@ async def main():
     validation = "Result uses the US notation, with a precision rounded to the nearest million dollars"
     memory = WeaviateMemory()
     return await _search_on_google(
-        memory, target_info, queries, urls=[], validation=validation
+        memory, queries, validation=validation
     )
 
 

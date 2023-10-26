@@ -75,11 +75,12 @@ class Config(metaclass=Singleton):
         self.weaviate_key = os.getenv("WEAVIATE_KEY")
 
         # Search
-        self.max_search_links = os.getenv("MAX_SEARCH_LINKS", 10)  # Max links to search, will be distributed between all the queries
-        self.web_search_top_results = os.getenv("WEB_SEARCH_TOP_RESULTS", 5)
-        self.web_answer_reserved_tokens = os.getenv("WEB_ANSWER_RESERVED_TOKENS", 2000)
+        self.max_search_links = os.getenv("MAX_SEARCH_LINKS", 3)  # Max links to search, will be distributed between all the queries
+        self.web_search_top_results = os.getenv("WEB_SEARCH_TOP_RESULTS", 3)
+        self.web_answer_reserved_tokens = os.getenv("WEB_ANSWER_RESERVED_TOKENS", 6000)
 
         # Coding
+        self.self_improvement = os.getenv("SELF_IMPROVEMENT", "False") == "True"
         self.max_improvement_retries = os.getenv("MAX_IMPROVEMENT_RETRIES", 3)
 
     def get_max_model_tokens(self, model) -> int:

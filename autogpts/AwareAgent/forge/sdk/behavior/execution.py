@@ -9,14 +9,20 @@ from forge.utils.logger.console_logger import ForgeLogger
 
 LOG = ForgeLogger(__name__)
 
+
 class Execution(LoggableBaseModel):
-    action: str = Field(
-        description="The name of the appropriate action that should be used to fulfill the current step. Remember to DON'T REPEAT ACTIONS"
+    reasoning: str = Field(
+        description="Explanation for your decision, encompassing supporting logic and areas for improvement. "
+    )
+    ability: str = Field(
+        "The name of the ability (only name, without arguments) that should be used to achieve the goal should be one of the available capabilities, is very important that you verify that the goal can be achieved using this ability."
     )
     arguments: Dict[str, Any] = Field(
         description="A dictionary with the action arguments where keys and values are both strings, e.g., {'arg1': 'value1', 'arg2': 'value2'}. You must provide the EXACT arguments (as declared in 'Args' section of each action) with their expected format that the action requires. Failure to do so will prevent the action from executing correctly!"
     )
-    _capability: str = PrivateAttr(default="")
+    is_last: bool = Field(
+        description="A boolean indicating whether this is the last action required to achieve the Task."
+    )
 
     @classmethod
     async def get_execution(
@@ -51,9 +57,3 @@ class Execution(LoggableBaseModel):
 
     def get_full_command(self):
         return f"Action: {self.action} with args: {self.arguments}"
-
-    def get_capability(self):
-        return self._capability
-
-    def set_capability(self, capability: str):
-        self._capability = capability

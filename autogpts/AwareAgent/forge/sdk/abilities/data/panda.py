@@ -34,7 +34,7 @@ class ShouldShowFullDfs(LoggableBaseModel):
 
 @ability(
     name="process_csv_and_save",
-    description="Process CSV files and save the result on another file using natural language queries.",
+    description="Processes CSVs using natural language queries and saves the output.",
     parameters=[
         {
             "name": "input_filenames",
@@ -60,35 +60,31 @@ class ShouldShowFullDfs(LoggableBaseModel):
 async def process_csv_and_save(
     agent, task_id: str, input_filenames: List[str], output_filename: str, request: str
 ) -> str:
-    response, success = await pandasai_chatbot(
+    response = await pandasai_chatbot(
         agent, task_id, input_filenames, request
     )
-    if success:
-        # Check if the response is a DataFrame before saving
-        if isinstance(response, SmartDataframe):
-            # Save DataFrame to CSV
-            output_filepath = agent.workspace.base_path / task_id / output_filename
-            dataframe = response.original_import()
-            dataframe.to_csv(output_filepath, index=False)
-        else:
-            # Save response to file
-            if isinstance(response, str):
-                response = response.encode("utf-8")
-            agent.workspace.write(task_id=task_id, path=output_filename, data=response)
-        await agent.db.create_artifact(
-            task_id=task_id,
-            file_name=output_filename,
-            relative_path="",
-            agent_created=True,
-        )
-        return f"Data saved successfully at: {output_filename}"
+    # Check if the response is a DataFrame before saving
+    if isinstance(response, SmartDataframe):
+        # Save DataFrame to CSV
+        output_filepath = agent.workspace.base_path / task_id / output_filename
+        dataframe = response.original_import()
+        dataframe.to_csv(output_filepath, index=False)
     else:
-        return f"Error: {response}"
+        # Save response to file
+        response = str(response).encode("utf-8")
+        agent.workspace.write(task_id=task_id, path=output_filename, data=response)
+    await agent.db.create_artifact(
+        task_id=task_id,
+        file_name=output_filename,
+        relative_path="",
+        agent_created=True,
+    )
+    return f"Data saved successfully at: {output_filename}"
 
 
 @ability(
     name="get_insights_from_csv",
-    description="Extract insights from CSV files using natural language queries.",
+    description="Derives insights from CSVs using natural language.",
     parameters=[
         {
             "name": "filenames",
@@ -108,7 +104,7 @@ async def process_csv_and_save(
 async def get_insights_from_csv(
     agent, task_id: str, filenames: List[str], question: str
 ) -> str:
-    response_str, _ = await pandasai_chatbot(agent, task_id, filenames, question)
+    response_str = await pandasai_chatbot(agent, task_id, filenames, question)
     return response_str
 
 
@@ -143,28 +139,11 @@ async def pandasai_chatbot(
         config={"llm": llm, "verbose": True, "show_full_dfs": show_full_dfs, "enable_cache": False},
         memory_size=10,
     )
-
-    attempts = 3
-    initial_question = question
-    error = ""
-    while attempts > 0:
-        try:
-            for df in dfs:
-                logger.debug(f"df is: {str(df)}")
-            response = panda_agent.chat(question)
-            logger.debug(f"Response: {str(response)}")
-            validation = await verify_response(model, initial_question, str(response))
-            if validation.validated:
-                return response, True
-            else:
-                question = f"Initial question: {initial_question}\nAdd this fix: {validation.fix}"
-                attempts -= 1
-                error = validation.reasoning
-        except Exception as e:
-            question = f"{initial_question}\nThe previous response failed due to: {str(e)}, please try again."
-            attempts -= 1
-            error = e
-    return f"An error occurred: {str(error)}", False
+    for df in dfs:
+        logger.debug(f"df is: {str(df)}")
+    response = panda_agent.chat(question)
+    logger.debug(f"Response: {str(response)}")
+    return response
 
 
 async def verify_response(model, question, answer):
