@@ -57,13 +57,13 @@ class ForgeAgent(Agent):
         task = await self.db.get_task(task_id)
         summary = self.memory.get_episodic_memory()
 
-        await self.plan_stage(task, summary)
+        step = await sel.run(task, summary)
         # await self.attention_stage(task)  # TODO: Implement me.
 
         step = await self.execute_stage(task, step_request, summary)
         return step
 
-    async def plan_stage(self, task: Task, summary: Optional[str] = None):
+    async def run(self, task: Task, summary: Optional[str] = None):
         self.config.set_stage(Stage.PLANNING)
 
         goals = self.memory.get_goals()
@@ -84,6 +84,41 @@ class ForgeAgent(Agent):
         )
         self.memory.set_goals(plan.goals)
         self.memory.update_thought(thought)
+        
+        # Get first goal
+        goal = plan.goals[0]
+        
+        ability = self.verify_ability(goal.ability)
+        if ability is None:
+            return await self.save_episode(
+                task_id, step.step_id, goal.description, goal.ability
+            )
+
+        # Execute the ability
+        try:
+            output = await self.abilities.run_ability(
+                task_id, ability, **execution.arguments
+            )
+        except Exception as e:
+            error_output = f"Error executing ability {execution.action} due to: {e}"
+            return await self.save_episode(
+                task_id,
+                step.step_id,
+                goal.description,
+                execution.action,
+                arguments=str(execution.arguments),
+                observation=error_output,
+            )
+
+        return await self.save_episode(
+            task_id,
+            step.step_id,
+            goal.description,
+            execution.action,
+            str(execution.arguments),
+            str(output),
+        )
+        
         if self.get_goal() is None:
             self.logger.info("No goals found. Exiting.")
             return False
@@ -98,6 +133,7 @@ class ForgeAgent(Agent):
             task_id=task_id, input=step_request, is_last=False
         )
         try:
+            # TODO: Move to plan. Task will finish with: is_last (flag) or after specific ability (end_task) (back to original idea of ability - end)
             goal = self.get_goal()
             if goal is None:
                 self.logger.info("No goals found. Exiting.")
