@@ -1,5 +1,7 @@
 # Aware: AutoGPT Hackathon Submission - Autonomous Operations
 
+You can see the AwareAgent abilities at: https://github.com/LuisLechugaRuiz/AwareAgent/tree/master/autogpts/AwareAgent/forge/sdk/abilities
+
 **Note:** For detailed insights into the technical implementation, including our ChatParser technology and intelligent token management, please refer to our [Technical Implementation Details](./README-technical.md). These essential elements are integral to leveraging large language models and managing resources effectively.
 
 At the heart of our submission for the AutoGPT Hackathon is Aware, an autonomous agent powered by advanced language models and designed to independently navigate tasks with minimal human intervention. Central to its functionality is the ability to manage and adapt its objectives, an innovative step forward in autonomous technology.
